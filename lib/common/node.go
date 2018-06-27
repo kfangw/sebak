@@ -29,7 +29,6 @@ type Node interface {
 	HasValidators(string) bool
 	RemoveValidators(validators ...*Validator) error
 	Serialize() ([]byte, error)
-	Info() ([]byte, error)
 }
 
 type ValidatorFromJSON struct {
