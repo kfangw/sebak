@@ -14,6 +14,8 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
+	"boscoin.io/sebak/lib/common"
+	"context"
 )
 
 func prepareServer(pattern string, getHandlerFunc func(storage *sebakstorage.LevelDBBackend) http.HandlerFunc) (testServer *httptest.Server, storage *sebakstorage.LevelDBBackend, err error) {
@@ -408,4 +410,59 @@ func TestGetTransactionsHandler(t *testing.T) {
 		i++
 	}
 
+}
+
+func TestNodeHandler(t *testing.T) {
+
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	var validator *sebakcommon.Validator
+	kp, _ := keypair.Random()
+	endpoint, _ := sebakcommon.NewEndpointFromString("dummy")
+	validator, _ = sebakcommon.NewValidator(kp.Address(), endpoint, "")
+	ctx := context.WithValue(context.Background(), "currentNode", validator)
+
+	router := mux.NewRouter()
+	router.HandleFunc(GetNodePattern, GetNodeHandler(ctx)).Methods("GET")
+
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+
+	// Do a Request
+	url := ts.URL + "/node"
+
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("Accept", "text/event-stream")
+
+	resp, _ := http.DefaultClient.Do(req)
+	reader := bufio.NewReader(resp.Body)
+
+	// Do stream Request to the Server
+	go func() {
+		for i:=0; i < 5; i++ {
+			line, _ := reader.ReadBytes('\n')
+			fmt.Println(string(line))
+		}
+		resp.Body.Close()
+		wg.Done()
+	}()
+	//time.Sleep(time.Second * 2)
+	for i:=0; i < 10; i++ {
+		var newValidator *sebakcommon.Validator
+		kp, _ := keypair.Random()
+		endpoint, _ := sebakcommon.NewEndpointFromString(sebakcommon.GetUniqueIDFromUUID())
+		newValidator, _ = sebakcommon.NewValidator(kp.Address(), endpoint, "")
+		validator.AddValidators(newValidator)
+	}
+
+	wg.Wait()
+	// No streaming
+	req.Header.Del("Accept")
+	resp, _ = http.DefaultClient.Do(req)
+	reader = bufio.NewReader(resp.Body)
+	readByte, _ := ioutil.ReadAll(reader)
+	fmt.Println(string(readByte))
 }
