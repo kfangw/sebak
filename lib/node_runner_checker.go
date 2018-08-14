@@ -5,6 +5,9 @@ import (
 	"boscoin.io/sebak/lib/common"
 	"boscoin.io/sebak/lib/network"
 	"boscoin.io/sebak/lib/node"
+	"boscoin.io/sebak/lib/statedb"
+	"boscoin.io/sebak/lib/trie"
+	"fmt"
 )
 
 type NodeRunnerHandleMessageChecker struct {
@@ -200,9 +203,11 @@ func CheckNodeRunnerHandleBallotStore(c sebakcommon.Checker, args ...interface{}
 		return
 	}
 
-	if err = FinishTransaction(checker.NodeRunner.Storage(), checker.Ballot, checker.GetTransaction()); err != nil {
+	var rootHash sebakcommon.Hash
+	if err, rootHash = FinishTransactionWithStateDB(checker.NodeRunner.RootHash(), checker.NodeRunner.Storage(), checker.Ballot, checker.GetTransaction()); err != nil {
 		return
 	}
+	checker.NodeRunner.rootHash = rootHash
 
 	checker.NodeRunner.Log().Debug(
 		"got consensus",
@@ -256,13 +261,15 @@ func CheckNodeRunnerHandleBallotVotingHole(c sebakcommon.Checker, args ...interf
 	}
 
 	// check, source exists
-	var ba *block.BlockAccount
-	if ba, err = block.GetBlockAccount(checker.NodeRunner.Storage(), tx.B.Source); err != nil {
+
+	statedb := statedb.New(checker.NodeRunner.RootHash(), trie.NewEthDatabase(checker.NodeRunner.Storage()))
+
+	if statedb.ExistAccount(tx.B.Source) == false {
 		return
 	}
 
 	// check, checkpoint is based on latest checkpoint
-	if !tx.IsValidCheckpoint(ba.Checkpoint) {
+	if !tx.IsValidCheckpoint(statedb.GetCheckPoint(tx.B.Source)) {
 		return
 	}
 
@@ -276,15 +283,19 @@ func CheckNodeRunnerHandleBallotVotingHole(c sebakcommon.Checker, args ...interf
 	totalAmount := tx.TotalAmount(true)
 	// check, have enough balance at checkpoint
 	if sebakcommon.MustAmountFromString(bac.Balance) < totalAmount {
+		fmt.Println("XXXXXXXXXXXXXXXXX")
+		fmt.Println(bac.Balance)
+		fmt.Println(totalAmount)
 		return
 	}
 
 	// check, have enough balance now
-	if sebakcommon.MustAmountFromString(ba.Balance) < totalAmount {
+	sourceBalance := sebakcommon.MustAmountFromString(statedb.GetBalance(tx.B.Source))
+	if sourceBalance < totalAmount {
 		checker.NodeRunner.Log().Debug(
 			"VotingNO: tx.TotalAmount(true) > MustAmountFromString(ba.Balance)",
 			"tx.TotalAmount(true)", totalAmount,
-			"MustAmountFromString(ba.Balance)", sebakcommon.MustAmountFromString(ba.Balance),
+			"MustAmountFromString(ba.Balance)", sourceBalance,
 		)
 		return
 	}

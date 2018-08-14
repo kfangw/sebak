@@ -36,7 +36,7 @@ type BlockOperation struct {
 	Target string
 	Amount sebakcommon.Amount
 
-	// transaction will be used only for `Save` time.
+	// transaction will be used only for `SaveToBeDeleted` time.
 	transaction Transaction
 	isSaved     bool
 }
