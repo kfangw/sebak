@@ -28,45 +28,67 @@ func NewStateTrieDB(root common.Hash, db *trie.EthDatabase) *StateTrieDB {
 	return stdb
 }
 
-func (stdb *StateTrieDB) GetAccount(addr string) (*sebak.BlockAccount, error) {
-	if a, ok := stdb.accounts[addr]; ok {
-		return a, nil
-
-	}
-	a, err := sebak.GetBlockAccount(stdb.db.LevelDBBackend(), addr)
-	if err != nil {
-		return nil, err
-	}
-	return a, nil
-
-}
-
 /*
+//TODO:
 func (db *StateTrieDB) SetDeployCode(addr string,deployCode *payload.DeployCode) error {
 
 }
 */
 
-func (db *StateTrieDB) PutStorageItem(addr, key string, item *cstorage.StorageItem) error {
-	if s, ok := db.storages[addr]; ok {
-		s.PutStorageItem(key, item)
-		return nil
-	} else {
-		a, err := db.GetAccount(addr)
-		if err != nil {
-			return err
-		}
+func (db *StateTrieDB) GetBalance(addr string) (common.Amount, error) {
+	a, err := db.getAccount(addr) // doesn't update db.accounts
+	if err != nil {
+		return common.Amount(0), err
+	}
 
-		storage := NewStorageTrieDB(addr, a.StorageRoot, db.db)
-		storage.PutStorageItem(key, item)
-		db.storages[addr] = storage
+	amount, err := common.AmountFromString(a.Balance)
+	if err != nil {
+		return common.Amount(0), err
+	}
+	return amount, nil
+}
+
+func (db *StateTrieDB) DepositBalance(addr string, amount common.Amount) error {
+	a, err := db.loadAccount(addr)
+	if err != nil {
+		return err
+	}
+
+	//TODO: checkpoint?
+	if err := a.Deposit(amount, "tx1-tx1"); err != nil {
+		return err
 	}
 
 	return nil
 }
 
+func (db *StateTrieDB) WithdrawBalance(addr string, amount common.Amount) error {
+	a, err := db.loadAccount(addr)
+	if err != nil {
+		return err
+	}
+
+	//TODO: checkpoint?
+	if err := a.Withdraw(amount, "tx1-tx1"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (db *StateTrieDB) PutStorageItem(addr, key string, item *cstorage.StorageItem) error {
+	s, err := db.loadStorageTrieDB(addr)
+	if err != nil {
+		return err
+	}
+
+	if err := s.PutStorageItem(key, item); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (db *StateTrieDB) updateStorageRoot(addr string, storageRoot common.Hash) error {
-	acc, err := db.GetAccount(addr)
+	acc, err := db.loadAccount(addr)
 	if err != nil {
 		return err
 	}
@@ -78,7 +100,7 @@ func (db *StateTrieDB) updateStorageRoot(addr string, storageRoot common.Hash) e
 }
 
 func (db *StateTrieDB) updateCodeHash(addr string, hash common.Hash) error {
-	acc, err := db.GetAccount(addr)
+	acc, err := db.loadAccount(addr)
 	if err != nil {
 		return err
 	}
@@ -102,6 +124,48 @@ func (db *StateTrieDB) updateTrie(addr string, account *sebak.BlockAccount) erro
 		return err
 	}
 	return nil
+}
+
+func (stdb *StateTrieDB) getAccount(addr string) (*sebak.BlockAccount, error) {
+	if a, ok := stdb.accounts[addr]; ok {
+		return a, nil
+
+	}
+	a, err := sebak.GetBlockAccount(stdb.db.LevelDBBackend(), addr)
+	if err != nil {
+		return nil, err
+	}
+
+	return a, nil
+}
+
+func (stdb *StateTrieDB) loadAccount(addr string) (*sebak.BlockAccount, error) {
+	if a, ok := stdb.accounts[addr]; ok {
+		return a, nil
+
+	}
+	a, err := sebak.GetBlockAccount(stdb.db.LevelDBBackend(), addr)
+	if err != nil {
+		return nil, err
+	}
+
+	stdb.accounts[addr] = a
+	return a, nil
+}
+
+func (stdb *StateTrieDB) loadStorageTrieDB(addr string) (*StorageTrieDB, error) {
+	if s, ok := stdb.storages[addr]; ok {
+		return s, nil
+	}
+
+	a, err := stdb.loadAccount(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	s := NewStorageTrieDB(addr, a.StorageRoot, stdb.db)
+	stdb.storages[addr] = s
+	return s, nil
 }
 
 func (db *StateTrieDB) Hash() common.Hash {
