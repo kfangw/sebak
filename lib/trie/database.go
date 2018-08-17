@@ -1,10 +1,11 @@
 package trie
 
 import (
+	"sync"
+
 	"boscoin.io/sebak/lib/storage"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/syndtr/goleveldb/leveldb"
-	"sync"
 )
 
 type EthDatabase struct {
@@ -16,6 +17,10 @@ func NewEthDatabase(ldb *sebakstorage.LevelDBBackend) *EthDatabase {
 	return &EthDatabase{
 		ldbBackend: ldb,
 	}
+}
+
+func (db *EthDatabase) LevelDBBackend() *sebakstorage.LevelDBBackend {
+	return db.ldbBackend
 }
 
 func (db *EthDatabase) Put(key []byte, value []byte) error {

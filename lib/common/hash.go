@@ -30,6 +30,8 @@ func MustMakeObjectHash(i interface{}) (b []byte) {
 
 type Hash = ethcommon.Hash
 
+var EmptyHash = Hash{}
+
 func BytesToHash(b []byte) Hash {
 	var h Hash
 	h.SetBytes(b)
