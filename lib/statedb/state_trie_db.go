@@ -93,6 +93,18 @@ func (db *StateTrieDB) PutStorageItem(addr, key string, item *cstorage.StorageIt
 	return nil
 }
 
+func (db *StateTrieDB) GetStorageItem(addr, key string) (*cstorage.StorageItem, error) {
+	s, err := db.loadStorageTrieDB(addr)
+	if err != nil {
+		return nil, err
+	}
+	item, err := s.GetStorageItem(key)
+	if err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
 func (db *StateTrieDB) updateStorageRoot(addr string, storageRoot common.Hash) error {
 	acc, err := db.loadAccount(addr)
 	if err != nil {
