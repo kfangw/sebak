@@ -35,6 +35,12 @@ func (db *StateTrieDB) SetDeployCode(addr string,deployCode *payload.DeployCode)
 }
 */
 
+func (db *StateTrieDB) CreateAccount(addr string, fund common.Amount, checkpoint string) error {
+	account := block.NewBlockAccount(addr, fund, checkpoint)
+	db.accounts[addr] = account
+	return db.updateTrie(addr, account)
+}
+
 func (db *StateTrieDB) GetBalance(addr string) (common.Amount, error) {
 	a, err := db.getAccount(addr) // doesn't update db.accounts
 	if err != nil {
@@ -59,7 +65,7 @@ func (db *StateTrieDB) DepositBalance(addr string, amount common.Amount) error {
 		return err
 	}
 
-	return nil
+	return db.updateTrie(addr, a)
 }
 
 func (db *StateTrieDB) WithdrawBalance(addr string, amount common.Amount) error {
@@ -72,7 +78,7 @@ func (db *StateTrieDB) WithdrawBalance(addr string, amount common.Amount) error 
 	if err := a.Withdraw(amount, "tx1-tx1"); err != nil {
 		return err
 	}
-	return nil
+	return db.updateTrie(addr, a)
 }
 
 func (db *StateTrieDB) PutStorageItem(addr, key string, item *cstorage.StorageItem) error {
@@ -129,7 +135,6 @@ func (db *StateTrieDB) updateTrie(addr string, account *block.BlockAccount) erro
 func (stdb *StateTrieDB) getAccount(addr string) (*block.BlockAccount, error) {
 	if a, ok := stdb.accounts[addr]; ok {
 		return a, nil
-
 	}
 
 	addrB, err := trie.EncodeToBytes(addr)

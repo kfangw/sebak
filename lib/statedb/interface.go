@@ -7,6 +7,7 @@ import (
 
 type StateDBWriter interface {
 	//Account states
+	CreateAccount(addr string, fund common.Amount, checkpoint string) error
 	GetBalance(addr string) (common.Amount, error)
 	DepositBalance(addr string, amount common.Amount) error
 	WithdrawBalance(addr string, amount common.Amount) error
