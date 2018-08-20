@@ -3,7 +3,7 @@ package statedb
 import (
 	"fmt"
 
-	sebak "boscoin.io/sebak/lib"
+	"boscoin.io/sebak/lib/block"
 	common "boscoin.io/sebak/lib/common"
 	cstorage "boscoin.io/sebak/lib/contract/storage"
 	"boscoin.io/sebak/lib/trie"
@@ -13,7 +13,7 @@ type StateTrieDB struct {
 	db   *trie.EthDatabase
 	trie *trie.Trie
 
-	accounts map[string]*sebak.BlockAccount
+	accounts map[string]*block.BlockAccount
 	storages map[string]*StorageTrieDB
 }
 
@@ -21,7 +21,7 @@ func NewStateTrieDB(root common.Hash, db *trie.EthDatabase) *StateTrieDB {
 	stdb := &StateTrieDB{
 		db:       db,
 		trie:     trie.NewTrie(root, db),
-		accounts: make(map[string]*sebak.BlockAccount),
+		accounts: make(map[string]*block.BlockAccount),
 		storages: make(map[string]*StorageTrieDB),
 	}
 
@@ -110,7 +110,7 @@ func (db *StateTrieDB) updateCodeHash(addr string, hash common.Hash) error {
 	return db.updateTrie(addr, acc)
 }
 
-func (db *StateTrieDB) updateTrie(addr string, account *sebak.BlockAccount) error {
+func (db *StateTrieDB) updateTrie(addr string, account *block.BlockAccount) error {
 	addrHash, err := trie.EncodeToBytes([]byte(addr))
 	if err != nil {
 		return err
@@ -126,31 +126,52 @@ func (db *StateTrieDB) updateTrie(addr string, account *sebak.BlockAccount) erro
 	return nil
 }
 
-func (stdb *StateTrieDB) getAccount(addr string) (*sebak.BlockAccount, error) {
+func (stdb *StateTrieDB) getAccount(addr string) (*block.BlockAccount, error) {
 	if a, ok := stdb.accounts[addr]; ok {
 		return a, nil
 
 	}
-	a, err := sebak.GetBlockAccount(stdb.db.LevelDBBackend(), addr)
+
+	addrB, err := trie.EncodeToBytes(addr)
 	if err != nil {
 		return nil, err
 	}
 
-	return a, nil
+	value, err := stdb.trie.TryGet(addrB)
+	if err != nil {
+		return nil, err
+	}
+
+	var account block.BlockAccount
+	if err := trie.DecodeBytes(value, &account); err != nil {
+		return nil, err
+	}
+
+	return &account, nil
 }
 
-func (stdb *StateTrieDB) loadAccount(addr string) (*sebak.BlockAccount, error) {
+func (stdb *StateTrieDB) loadAccount(addr string) (*block.BlockAccount, error) {
 	if a, ok := stdb.accounts[addr]; ok {
 		return a, nil
 
 	}
-	a, err := sebak.GetBlockAccount(stdb.db.LevelDBBackend(), addr)
+	addrB, err := trie.EncodeToBytes(addr)
 	if err != nil {
 		return nil, err
 	}
 
-	stdb.accounts[addr] = a
-	return a, nil
+	value, err := stdb.trie.TryGet(addrB)
+	if err != nil {
+		return nil, err
+	}
+
+	var account block.BlockAccount
+	if err := trie.DecodeBytes(value, &account); err != nil {
+		return nil, err
+	}
+
+	stdb.accounts[addr] = &account
+	return &account, nil
 }
 
 func (stdb *StateTrieDB) loadStorageTrieDB(addr string) (*StorageTrieDB, error) {

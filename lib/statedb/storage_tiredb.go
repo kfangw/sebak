@@ -28,13 +28,19 @@ func (s *StorageTrieDB) GetStorageItem(key string) (*storage.StorageItem, error)
 		return item, nil
 	}
 
-	dbBackend := s.db.LevelDBBackend()
-
-	item, err := storage.GetStorageItem(dbBackend, s.addr, key)
+	keyB, err := trie.EncodeToBytes(key)
 	if err != nil {
 		return nil, err
 	}
-	return item, nil
+	value, err := s.trie.TryGet(keyB)
+	if err != nil {
+		return nil, err
+	}
+	var item storage.StorageItem
+	if err := trie.DecodeBytes(value, &item); err != nil {
+		return nil, err
+	}
+	return &item, nil
 }
 
 func (s *StorageTrieDB) PutStorageItem(key string, item *storage.StorageItem) error {
