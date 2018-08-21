@@ -26,9 +26,11 @@ const BlockAccountCheckpointPrefix string = "bac-ac-"
 const BlockAccountCheckpointByAddressPrefix string = "bac-aa-"
 
 type BlockAccount struct {
-	Address    string
-	Balance    string
-	Checkpoint string
+	Address     string
+	Balance     string
+	Checkpoint  string
+	CodeHash    sebakcommon.Hash
+	StorageRoot sebakcommon.Hash
 }
 
 func NewBlockAccount(address string, balance sebakcommon.Amount, checkpoint string) *BlockAccount {

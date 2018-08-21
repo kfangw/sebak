@@ -1,9 +1,10 @@
 package statedb
 
 import (
+	"fmt"
+
 	"boscoin.io/sebak/lib/common"
 	"boscoin.io/sebak/lib/trie"
-	"fmt"
 )
 
 type StateDB struct {
