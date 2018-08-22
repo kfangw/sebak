@@ -3,11 +3,14 @@ package sebak
 import (
 	"boscoin.io/sebak/lib/block"
 	"boscoin.io/sebak/lib/common"
+	"boscoin.io/sebak/lib/statedb"
 	"boscoin.io/sebak/lib/storage"
+	"boscoin.io/sebak/lib/trie"
 	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stellar/go/keypair"
 	"github.com/stretchr/testify/assert"
@@ -41,12 +44,23 @@ func TestGetAccountHandler(t *testing.T) {
 	defer ts.Close()
 
 	// Make Dummy BlockAccount
-	ba := block.TestMakeBlockAccount()
-	ba.Save(storage)
-	prev := ba.GetBalance()
+
+	sdb := statedb.New(sebakcommon.Hash{}, trie.NewEthDatabase(storage))
+	kp, _ := keypair.Random()
+	addr := kp.Address()
+	sdb.CreateAccount(addr)
+
+	balance := sebakcommon.Amount(2000)
+	checkpoint := uuid.New().String()
+
+	sdb.AddBalanceWithCheckpoint(addr, balance, checkpoint)
+	rootHash, _ := sdb.CommitTrie()
+	sdb.CommitDB(rootHash)
+
+	prev := sebakcommon.MustAmountFromString(sdb.GetBalance(addr))
 
 	// Do Request
-	url := ts.URL + fmt.Sprintf("/account/%s", ba.Address)
+	url := ts.URL + fmt.Sprintf("/account/%s", addr)
 	req, err := http.NewRequest("GET", url, nil)
 	checkError(t, err)
 	req.Header.Set("Accept", "text/event-stream")
@@ -62,7 +76,7 @@ func TestGetAccountHandler(t *testing.T) {
 			checkError(t, err)
 			var cba = &block.BlockAccount{}
 			json.Unmarshal(line, cba)
-			assert.Equal(t, ba.Address, cba.Address, "not equal")
+			assert.Equal(t, addr, cba.Address, "not equal")
 			assert.Equal(t, prev+n, cba.GetBalance(), "not equal")
 			prev = cba.GetBalance()
 		}
@@ -73,16 +87,14 @@ func TestGetAccountHandler(t *testing.T) {
 	go func() {
 		// Makes Some Events
 		for n := 1; n < 20; n++ {
-			newBalance, err := ba.GetBalance().Add(sebakcommon.Amount(n))
-			checkError(t, err)
-			ba.Balance = newBalance.String()
-
-			ba.Save(storage)
+			sdb = statedb.New(rootHash, trie.NewEthDatabase(storage))
+			sdb.AddBalance(addr, sebakcommon.Amount(n))
+			rootHash, _ = sdb.CommitTrie()
+			sdb.CommitDB(rootHash)
 		}
 
 		wg.Done()
 	}()
-
 	wg.Wait()
 
 	// No streaming
@@ -90,13 +102,16 @@ func TestGetAccountHandler(t *testing.T) {
 	checkError(t, err)
 	resp, err = ts.Client().Do(req)
 	checkError(t, err)
+
+	sdb = statedb.New(rootHash, trie.NewEthDatabase(storage))
+
 	reader = bufio.NewReader(resp.Body)
 	readByte, err := ioutil.ReadAll(reader)
 	checkError(t, err)
 	var cba = &block.BlockAccount{}
 	json.Unmarshal(readByte, cba)
-	assert.Equal(t, ba.Address, cba.Address, "not equal")
-	assert.Equal(t, ba.GetBalance(), cba.GetBalance(), "not equal")
+	assert.Equal(t, addr, cba.Address, "not equal")
+	assert.Equal(t, sebakcommon.MustAmountFromString(sdb.GetBalance(addr)), cba.GetBalance(), "not equal")
 
 }
 
