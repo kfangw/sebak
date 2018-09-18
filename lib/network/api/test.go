@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 
 	"boscoin.io/sebak/lib/block"
+	"boscoin.io/sebak/lib/network"
+	"boscoin.io/sebak/lib/node"
 	"boscoin.io/sebak/lib/storage"
 	"boscoin.io/sebak/lib/transaction"
 	"github.com/gorilla/mux"
@@ -18,15 +20,35 @@ const (
 	QueryPattern = "cursor={cursor}&limit={limit}&reverse={reverse}&type={type}"
 )
 
-func prepareAPIServer() (*httptest.Server, *storage.LevelDBBackend, error) {
+func prepareAPIServer() (*httptest.Server, *NetworkHandlerAPI, error) {
 	storage, err := storage.NewTestMemoryLevelDBBackend()
 	if err != nil {
 		return nil, nil, err
 	}
+	n := 3
+	var ns []*network.MemoryNetwork
+	var net *network.MemoryNetwork
+	var nodes []*node.LocalNode
+	for i := 0; i < n; i++ {
+		_, s, v := network.CreateMemoryNetwork(net)
+		net = s
+		ns = append(ns, s)
+		nodes = append(nodes, v)
+	}
 
-	apiHandler := NetworkHandlerAPI{storage: storage}
+	for i := 0; i < n; i++ {
+		for j := 0; j < n; j++ {
+			if i == j {
+				continue
+			}
+			nodes[i].AddValidators(nodes[j].ConvertToValidator())
+		}
+	}
+
+	apiHandler := NewNetworkHandlerAPI(nodes[0], nil, storage, "")
 
 	router := mux.NewRouter()
+	router.HandleFunc(NodePattern, apiHandler.GetNodeHandler).Methods("GET")
 	router.HandleFunc(GetAccountHandlerPattern, apiHandler.GetAccountHandler).Methods("GET")
 	router.HandleFunc(GetAccountTransactionsHandlerPattern, apiHandler.GetTransactionsByAccountHandler).Methods("GET")
 	router.HandleFunc(GetAccountOperationsHandlerPattern, apiHandler.GetOperationsByAccountHandler).Methods("GET")
@@ -37,7 +59,29 @@ func prepareAPIServer() (*httptest.Server, *storage.LevelDBBackend, error) {
 	router.HandleFunc(GetAccountHandlerPattern, apiHandler.GetAccountHandler).Methods("GET")
 	router.HandleFunc(GetTransactionOperationsHandlerPattern, apiHandler.GetOperationsByTxHashHandler).Methods("GET")
 	ts := httptest.NewServer(router)
-	return ts, storage, nil
+	return ts, apiHandler, nil
+}
+
+func prepareAPIServerWithNode(node *node.LocalNode, net *network.MemoryNetwork) (*httptest.Server, *NetworkHandlerAPI, error) {
+	storage, err := storage.NewTestMemoryLevelDBBackend()
+	if err != nil {
+		return nil, nil, err
+	}
+	apiHandler := NewNetworkHandlerAPI(node, net, storage, "")
+
+	router := mux.NewRouter()
+	router.HandleFunc(NodePattern, apiHandler.GetNodeHandler).Methods("GET")
+	router.HandleFunc(GetAccountHandlerPattern, apiHandler.GetAccountHandler).Methods("GET")
+	router.HandleFunc(GetAccountTransactionsHandlerPattern, apiHandler.GetTransactionsByAccountHandler).Methods("GET")
+	router.HandleFunc(GetAccountOperationsHandlerPattern, apiHandler.GetOperationsByAccountHandler).Methods("GET")
+	router.HandleFunc(GetTransactionsHandlerPattern, apiHandler.GetTransactionsHandler).Methods("GET")
+	router.HandleFunc(GetTransactionByHashHandlerPattern, apiHandler.GetTransactionByHashHandler).Methods("GET")
+	router.HandleFunc(GetAccountHandlerPattern, apiHandler.GetAccountHandler).Methods("GET")
+	router.HandleFunc(GetAccountHandlerPattern, apiHandler.GetAccountHandler).Methods("GET")
+	router.HandleFunc(GetAccountHandlerPattern, apiHandler.GetAccountHandler).Methods("GET")
+	router.HandleFunc(GetTransactionOperationsHandlerPattern, apiHandler.GetOperationsByTxHashHandler).Methods("GET")
+	ts := httptest.NewServer(router)
+	return ts, apiHandler, nil
 }
 
 func prepareOps(storage *storage.LevelDBBackend, blockHeight uint64, count int, kp *keypair.Full) (*keypair.Full, []block.BlockOperation, error) {

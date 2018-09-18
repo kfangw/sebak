@@ -17,8 +17,9 @@ import (
 )
 
 func TestGetAccountHandler(t *testing.T) {
-	ts, storage, err := prepareAPIServer()
+	ts, handler, err := prepareAPIServer()
 	require.Nil(t, err)
+	storage := handler.storage
 	defer storage.Close()
 	defer ts.Close()
 	// Make Dummy BlockAccount
@@ -45,8 +46,9 @@ func TestGetAccountHandlerStream(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	ts, storage, err := prepareAPIServer()
+	ts, handler, err := prepareAPIServer()
 	require.Nil(t, err)
+	storage := handler.storage
 	defer storage.Close()
 	defer ts.Close()
 	ba := block.TestMakeBlockAccount()
@@ -92,8 +94,9 @@ func TestGetAccountHandlerStream(t *testing.T) {
 // Test that getting an inexisting account returns an error
 func TestGetNonExistentAccountHandler(t *testing.T) {
 
-	ts, storage, err := prepareAPIServer()
+	ts, handler, err := prepareAPIServer()
 	require.Nil(t, err)
+	storage := handler.storage
 	defer storage.Close()
 	defer ts.Close()
 

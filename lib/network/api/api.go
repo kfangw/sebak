@@ -24,6 +24,7 @@ const (
 	GetTransactionByHashHandlerPattern     = "/transactions/{id}"
 	GetTransactionOperationsHandlerPattern = "/transactions/{id}/operations"
 	PostTransactionPattern                 = "/transactions"
+	NodePattern                            = "/node"
 )
 
 type NetworkHandlerAPI struct {

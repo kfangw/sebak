@@ -18,8 +18,9 @@ import (
 
 func TestGetTransactionByHashHandler(t *testing.T) {
 
-	ts, storage, err := prepareAPIServer()
+	ts, handler, err := prepareAPIServer()
 	require.Nil(t, err)
+	storage := handler.storage
 	defer storage.Close()
 	defer ts.Close()
 
@@ -50,8 +51,9 @@ func TestGetTransactionByHashHandlerStream(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	ts, storage, err := prepareAPIServer()
+	ts, handler, err := prepareAPIServer()
 	require.Nil(t, err)
+	storage := handler.storage
 	defer storage.Close()
 	defer ts.Close()
 
@@ -96,8 +98,9 @@ func TestGetTransactionByHashHandlerStream(t *testing.T) {
 }
 
 func TestGetTransactionsHandler(t *testing.T) {
-	ts, storage, err := prepareAPIServer()
+	ts, handler, err := prepareAPIServer()
 	require.Nil(t, err)
+	storage := handler.storage
 	defer storage.Close()
 	defer ts.Close()
 
@@ -137,8 +140,9 @@ func TestGetTransactionsHandlerStream(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	ts, storage, err := prepareAPIServer()
+	ts, handler, err := prepareAPIServer()
 	require.Nil(t, err)
+	storage := handler.storage
 	defer storage.Close()
 	defer ts.Close()
 
@@ -197,8 +201,9 @@ func TestGetTransactionsHandlerStream(t *testing.T) {
 }
 
 func TestGetTransactionsByAccountHandler(t *testing.T) {
-	ts, storage, err := prepareAPIServer()
+	ts, handler, err := prepareAPIServer()
 	require.Nil(t, err)
+	storage := handler.storage
 	defer storage.Close()
 	defer ts.Close()
 
@@ -239,8 +244,9 @@ func TestGetTransactionsByAccountHandlerStream(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	ts, storage, err := prepareAPIServer()
+	ts, handler, err := prepareAPIServer()
 	require.Nil(t, err)
+	storage := handler.storage
 	defer storage.Close()
 	defer ts.Close()
 
@@ -298,8 +304,9 @@ func TestGetTransactionsByAccountHandlerStream(t *testing.T) {
 }
 
 func TestGetTransactionsHandlerPage(t *testing.T) {
-	ts, storage, err := prepareAPIServer()
+	ts, handler, err := prepareAPIServer()
 	require.Nil(t, err)
+	storage := handler.storage
 	defer storage.Close()
 	defer ts.Close()
 
