@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	neturl "net/url"
@@ -289,6 +290,7 @@ func (c *Client) StreamTransactionsByHash(ctx context.Context, id string, cursor
 	handlerFunc := func(b []byte) (err error) {
 		var v Transaction
 		err = json.Unmarshal(b, &v)
+		fmt.Println(err)
 		if err != nil {
 			return err
 		}
