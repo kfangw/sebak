@@ -267,7 +267,7 @@ func ValidateTx(st *storage.LevelDBBackend, config common.Config, tx transaction
 //   source = Account from where the transaction (and ops) come from
 //   tx = Transaction to check
 //
-func ValidateOp(st *storage.LevelDBBackend, config common.Config, source *block.BlockAccount, op operation.Operation) (err error) {
+func ValidateOp(st *storage.LevelDBBackend, config common.Config, source *block.BlockAccount, op operation.Operation) (error) {
 	switch op.H.Type {
 	case operation.TypeCreateAccount:
 		var ok bool
@@ -355,6 +355,7 @@ func ValidateOp(st *storage.LevelDBBackend, config common.Config, source *block.
 			return errors.TypeOperationBodyNotMatched
 		}
 		var taccount *block.BlockAccount
+		var err error
 		if taccount, err = block.GetBlockAccount(st, inflationPF.FundingAddress); err != nil {
 			return errors.BlockAccountDoesNotExists
 		}
