@@ -79,7 +79,7 @@ func NewBlockOperationFromOperation(op operation.Operation, tx transaction.Trans
 		transaction: tx,
 		operation:   op,
 		linked:      linked,
-		txIndex:     index,
+		txIndex:     txIndex,
 	}, nil
 }
 
