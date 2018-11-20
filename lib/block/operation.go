@@ -34,6 +34,7 @@ type BlockOperation struct {
 	transaction transaction.Transaction
 	operation   operation.Operation
 	linked      string
+	txIndex     uint64
 	isSaved     bool
 }
 
@@ -41,7 +42,7 @@ func NewBlockOperationKey(opHash, txHash string) string {
 	return fmt.Sprintf("%s-%s", opHash, txHash)
 }
 
-func NewBlockOperationFromOperation(op operation.Operation, tx transaction.Transaction, blockHeight, index uint64) (BlockOperation, error) {
+func NewBlockOperationFromOperation(op operation.Operation, tx transaction.Transaction, blockHeight, txIndex, index uint64) (BlockOperation, error) {
 	body, err := op.B.Serialize()
 	if err != nil {
 		return BlockOperation{}, err
@@ -78,6 +79,7 @@ func NewBlockOperationFromOperation(op operation.Operation, tx transaction.Trans
 		transaction: tx,
 		operation:   op,
 		linked:      linked,
+		txIndex:     index,
 	}, nil
 }
 

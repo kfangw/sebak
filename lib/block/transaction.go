@@ -202,7 +202,7 @@ func (bt *BlockTransaction) SaveBlockOperation(st *storage.LevelDBBackend, op op
 	}
 
 	var bo BlockOperation
-	bo, err = NewBlockOperationFromOperation(op, bt.Transaction(), bt.blockHeight, index)
+	bo, err = NewBlockOperationFromOperation(op, bt.Transaction(), bt.blockHeight, bt.Index, index)
 	if err != nil {
 		return
 	}
