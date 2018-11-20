@@ -29,7 +29,7 @@ func TestNewBlockOperationFromOperation(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, bo.Body, encoded)
 	require.Equal(t, bo.Index, index)
-	require.Equal(t, bo.txIndex, txIndex)
+	require.Equal(t, bo.TxIndex, txIndex)
 }
 
 func TestBlockOperationSaveAndGet(t *testing.T) {
