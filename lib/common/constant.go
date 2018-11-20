@@ -56,6 +56,9 @@ const (
 	// operations in one ballot. This does not count the operations of
 	// `ProposerTransaction`.
 	DefaultOperationsInBallotLimit int = 10000
+
+	// ProposerTransactionIndex
+	ProposerTransactionIndex uint64 = 0
 )
 
 var (

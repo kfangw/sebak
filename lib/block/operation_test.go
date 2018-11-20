@@ -16,7 +16,7 @@ func TestNewBlockOperationFromOperation(t *testing.T) {
 	_, tx := transaction.TestMakeTransaction(conf.NetworkID, 1)
 
 	op := tx.B.Operations[0]
-	bo, err := NewBlockOperationFromOperation(op, tx, 0)
+	bo, err := NewBlockOperationFromOperation(op, tx, 0, 0)
 	require.NoError(t, err)
 
 	require.Equal(t, bo.Type, op.H.Type)
@@ -104,7 +104,7 @@ func TestBlockOperationSaveByTransaction(t *testing.T) {
 
 	_, tx := transaction.TestMakeTransaction(conf.NetworkID, 10)
 	block := TestMakeNewBlockWithPrevBlock(GetLatestBlock(st), []string{tx.GetHash()})
-	bt := NewBlockTransactionFromTransaction(block.Hash, block.Height, block.ProposedTime, tx)
+	bt := NewBlockTransactionFromTransaction(block.Hash, block.Height, block.ProposedTime, tx, 0)
 	err := bt.Save(st)
 	require.NoError(t, err)
 

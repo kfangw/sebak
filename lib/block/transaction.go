@@ -36,12 +36,14 @@ type BlockTransaction struct {
 	Created   string `json:"created"`
 	Message   []byte `json:"message"`
 
+	Index uint64 `json:"index"`
+
 	transaction transaction.Transaction
 	isSaved     bool
 	blockHeight uint64
 }
 
-func NewBlockTransactionFromTransaction(blockHash string, blockHeight uint64, confirmed string, tx transaction.Transaction) BlockTransaction {
+func NewBlockTransactionFromTransaction(blockHash string, blockHeight uint64, confirmed string, tx transaction.Transaction, index uint64) BlockTransaction {
 	var opHashes []string
 	for _, op := range tx.B.Operations {
 		opHashes = append(opHashes, NewBlockOperationKey(op.MakeHashString(), tx.GetHash()))
@@ -58,6 +60,7 @@ func NewBlockTransactionFromTransaction(blockHash string, blockHeight uint64, co
 		Amount:     tx.TotalAmount(true),
 		Confirmed:  confirmed,
 		Created:    tx.H.Created,
+		Index:      index,
 
 		transaction: tx,
 		blockHeight: blockHeight,
@@ -179,8 +182,8 @@ func (bt *BlockTransaction) SaveBlockOperations(st *storage.LevelDBBackend) (err
 		}
 	}
 
-	for _, op := range bt.Transaction().B.Operations {
-		if err = bt.SaveBlockOperation(st, op); err != nil {
+	for i, op := range bt.Transaction().B.Operations {
+		if err = bt.SaveBlockOperation(st, op, uint64(i)); err != nil {
 			return
 		}
 	}
@@ -188,7 +191,7 @@ func (bt *BlockTransaction) SaveBlockOperations(st *storage.LevelDBBackend) (err
 	return nil
 }
 
-func (bt *BlockTransaction) SaveBlockOperation(st *storage.LevelDBBackend, op operation.Operation) (err error) {
+func (bt *BlockTransaction) SaveBlockOperation(st *storage.LevelDBBackend, op operation.Operation, index uint64) (err error) {
 	if bt.blockHeight < 1 {
 		var blk Block
 		if blk, err = GetBlock(st, bt.Block); err != nil {
@@ -199,7 +202,7 @@ func (bt *BlockTransaction) SaveBlockOperation(st *storage.LevelDBBackend, op op
 	}
 
 	var bo BlockOperation
-	bo, err = NewBlockOperationFromOperation(op, bt.Transaction(), bt.blockHeight)
+	bo, err = NewBlockOperationFromOperation(op, bt.Transaction(), bt.blockHeight, index)
 	if err != nil {
 		return
 	}

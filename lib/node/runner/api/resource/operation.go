@@ -35,6 +35,7 @@ func (o Operation) GetMap() hal.Entry {
 		"target":       o.bo.Target,
 		"type":         o.bo.Type,
 		"tx_hash":      o.bo.TxHash,
+		"index":        o.bo.Index,
 		"body":         body,
 		"block_height": o.bo.Height,
 	}

@@ -28,6 +28,7 @@ type BlockOperation struct {
 	Target string                  `json:"target"`
 	Body   []byte                  `json:"body"`
 	Height uint64                  `json:"block_height"`
+	Index  uint64                  `json:"index"`
 
 	// bellows will be used only for `Save` time.
 	transaction transaction.Transaction
@@ -40,7 +41,7 @@ func NewBlockOperationKey(opHash, txHash string) string {
 	return fmt.Sprintf("%s-%s", opHash, txHash)
 }
 
-func NewBlockOperationFromOperation(op operation.Operation, tx transaction.Transaction, blockHeight uint64) (BlockOperation, error) {
+func NewBlockOperationFromOperation(op operation.Operation, tx transaction.Transaction, blockHeight, index uint64) (BlockOperation, error) {
 	body, err := op.B.Serialize()
 	if err != nil {
 		return BlockOperation{}, err
@@ -72,6 +73,7 @@ func NewBlockOperationFromOperation(op operation.Operation, tx transaction.Trans
 		Target: target,
 		Body:   body,
 		Height: blockHeight,
+		Index:  index,
 
 		transaction: tx,
 		operation:   op,
