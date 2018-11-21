@@ -345,12 +345,14 @@ func (bo BlockOperation) NewBlockOperationPeersAndTypeKey(addr string) string {
 	)
 }
 func (bo BlockOperation) NewBlockOperationBlockHeightKey() string {
-	return fmt.Sprintf(
-		"%s%s%s",
-		GetBlockOperationKeyPrefixBlockHeight(bo.Height),
-		common.EncodeUint64ToByteSlice(bo.transaction.B.SequenceID),
-		common.GetUniqueIDFromUUID(),
-	)
+	idx := storage.NewIndex()
+	idx.WritePrefix(GetBlockOperationKeyPrefixBlockHeight(bo.Height))
+	bo.order.Index(idx)
+	return idx.String()
+}
+
+func (bo BlockOperation) BlockOrder() *BlockOrder {
+	return bo.order
 }
 
 func ExistsBlockOperation(st *storage.LevelDBBackend, hash string) (bool, error) {
