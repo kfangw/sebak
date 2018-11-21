@@ -1,8 +1,6 @@
 package block
 
 import (
-	"fmt"
-
 	"boscoin.io/sebak/lib/common"
 	"boscoin.io/sebak/lib/errors"
 	"boscoin.io/sebak/lib/storage"
@@ -264,6 +262,10 @@ func (bt *BlockTransaction) SaveBlockOperation(st *storage.LevelDBBackend, op op
 	}
 
 	return nil
+}
+
+func (bt BlockTransaction) BlockOrder() *BlockOrder {
+	return bt.order
 }
 
 func GetBlockTransactionKeyPrefixSource(source string) string {
