@@ -59,6 +59,9 @@ func (api NetworkHandlerAPI) GetOperationsByAccountHandler(w http.ResponseWriter
 		}
 		for {
 			t, hasNext, _ := iterFunc()
+			if t.BlockOrder() != nil {
+				order = t.BlockOrder()
+			}
 			if !hasNext {
 				break
 			}
@@ -81,7 +84,6 @@ func (api NetworkHandlerAPI) GetOperationsByAccountHandler(w http.ResponseWriter
 			r := resource.NewOperation(&t)
 			r.Block = blk
 			txs = append(txs, r)
-			order = t.BlockOrder()
 		}
 		closeFunc()
 		return txs
