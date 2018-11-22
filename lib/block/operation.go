@@ -248,15 +248,6 @@ func (bo BlockOperation) NewBlockOperationTxHashKey() string {
 	idx.WritePrefix(GetBlockOperationKeyPrefixTxHash(bo.TxHash))
 	bo.order.Index(idx)
 	return idx.String()
-	/*
-		return fmt.Sprintf(
-			"%s%s%s%s",
-			GetBlockOperationKeyPrefixTxHash(bo.TxHash),
-			common.EncodeUint64ToByteSlice(bo.Height),
-			common.EncodeUint64ToByteSlice(bo.TxIndex),
-			common.EncodeUint64ToByteSlice(bo.Index),
-		)
-	*/
 }
 
 func (bo BlockOperation) NewBlockOperationSourceKey() string {
@@ -264,15 +255,6 @@ func (bo BlockOperation) NewBlockOperationSourceKey() string {
 	idx.WritePrefix(GetBlockOperationKeyPrefixSource(bo.Source))
 	bo.order.Index(idx)
 	return idx.String()
-	/*
-		return fmt.Sprintf(
-			"%s%s%s%s",
-			GetBlockOperationKeyPrefixSource(bo.Source),
-			common.EncodeUint64ToByteSlice(bo.Height),
-			common.EncodeUint64ToByteSlice(bo.TxIndex),
-			common.EncodeUint64ToByteSlice(bo.Index),
-		)
-	*/
 }
 
 func (bo BlockOperation) NewBlockOperationFrozenLinkedKey(hash string) string {
@@ -280,14 +262,6 @@ func (bo BlockOperation) NewBlockOperationFrozenLinkedKey(hash string) string {
 	idx.WritePrefix(GetBlockOperationKeyPrefixFrozenLinked(hash))
 	bo.order.Index(idx)
 	return idx.String()
-
-	/*
-		return fmt.Sprintf(
-			"%s%s",
-			GetBlockOperationKeyPrefixFrozenLinked(hash),
-			common.EncodeUint64ToByteSlice(bo.Height),
-		)
-	*/
 }
 
 func (bo BlockOperation) NewBlockOperationSourceAndTypeKey() string {
@@ -295,15 +269,6 @@ func (bo BlockOperation) NewBlockOperationSourceAndTypeKey() string {
 	idx.WritePrefix(GetBlockOperationKeyPrefixSourceAndType(bo.Source, bo.Type))
 	bo.order.Index(idx)
 	return idx.String()
-	/*
-		return fmt.Sprintf(
-			"%s%s%s%s",
-			GetBlockOperationKeyPrefixSourceAndType(bo.Source, bo.Type),
-			common.EncodeUint64ToByteSlice(bo.Height),
-			common.EncodeUint64ToByteSlice(bo.TxIndex),
-			common.EncodeUint64ToByteSlice(bo.Index),
-		)
-	*/
 }
 func (bo BlockOperation) NewBlockOperationTargetKey(target string) string {
 	return fmt.Sprintf(
