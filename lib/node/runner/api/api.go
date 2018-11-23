@@ -84,7 +84,7 @@ func TriggerEvent(st *storage.LevelDBBackend, transactions []*transaction.Transa
 		t(event(cond(obs.Tx, obs.TxHash, txHash)), &bt)
 
 		for _, op := range tx.B.Operations {
-			opHash := block.NewBlockOperationKey(op.MakeHashString(), txHash)
+			opHash := block.NewBlockOperationKey(op.MakeHashString(), txHash, uint64(i))
 			bo, err := block.GetBlockOperation(st, opHash)
 			if err != nil {
 				return
