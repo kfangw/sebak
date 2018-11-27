@@ -44,7 +44,7 @@ func (api NetworkHandlerAPI) GetOperationsByAccountHandler(w http.ResponseWriter
 
 	var (
 		pOrder *block.BlockOrder
-		nOrder 
+		nOrder *block.BlockOrder
 	)
 
 	readFunc := func() []resource.Resource {
@@ -59,9 +59,6 @@ func (api NetworkHandlerAPI) GetOperationsByAccountHandler(w http.ResponseWriter
 		}
 		for {
 			t, hasNext, _ := iterFunc()
-			if t.BlockOrder() != nil {
-				order = t.BlockOrder()
-			}
 			if !hasNext {
 				break
 			}
@@ -98,6 +95,6 @@ func (api NetworkHandlerAPI) GetOperationsByAccountHandler(w http.ResponseWriter
 	}
 
 	txs := readFunc()
-	list := p.ResourceListWithOrder(txs, pOrder,nOrder)
+	list := p.ResourceListWithOrder(txs, pOrder, nOrder)
 	httputils.MustWriteJSON(w, 200, list)
 }
