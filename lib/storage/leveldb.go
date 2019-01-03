@@ -3,7 +3,6 @@ package storage
 import (
 	"encoding"
 	"encoding/json"
-
 	"github.com/syndtr/goleveldb/leveldb"
 	leveldbIterator "github.com/syndtr/goleveldb/leveldb/iterator"
 	leveldbOpt "github.com/syndtr/goleveldb/leveldb/opt"
@@ -266,6 +265,16 @@ func (st *LevelDBBackend) Remove(k string) error {
 	} else {
 		return setLevelDBCoreError(st.Core.Delete(st.makeKey(k), nil))
 	}
+}
+
+func (st *LevelDBBackend) Iterator(start, end []byte) Iterator {
+	itr := st.DB.NewIterator(nil, nil)
+	return newGoLevelDBIterator(itr, start, end, false)
+}
+
+func (st *LevelDBBackend) ReverseIterator(start, end []byte) Iterator {
+	itr := st.DB.NewIterator(nil, nil)
+	return newGoLevelDBIterator(itr, start, end, true)
 }
 
 func (st *LevelDBBackend) GetIterator(prefix string, option ListOptions) (func() (IterItem, bool), func()) {
