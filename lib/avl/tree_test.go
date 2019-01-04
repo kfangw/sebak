@@ -60,11 +60,11 @@ func TestVersionedRandomTree(t *testing.T) {
 	// db than in the current tree version.
 	require.True(len(tree.ndb.nodes()) >= tree.nodeSize())
 	for i := 1; i < versions; i++ {
-		tree.DeleteVersion(int64(i))
+		tree.DeleteVersion(uint64(i))
 	}
 
 	require.Len(tree.versions, 1, "tree must have one version left")
-	tr, err := tree.GetImmutable(int64(versions))
+	tr, err := tree.GetImmutable(uint64(versions))
 	require.NoError(err, "GetImmutable should not error for version %d", versions)
 	require.Equal(tr.root, tree.root)
 
@@ -98,7 +98,7 @@ func TestVersionedRandomTreeSmallKeys(t *testing.T) {
 	singleVersionTree.SaveVersion()
 
 	for i := 1; i < versions; i++ {
-		tree.DeleteVersion(int64(i))
+		tree.DeleteVersion(uint64(i))
 	}
 
 	// After cleaning up all previous versions, we should have as many nodes
@@ -139,7 +139,7 @@ func TestVersionedRandomTreeSmallKeysRandomDeletes(t *testing.T) {
 	singleVersionTree.SaveVersion()
 
 	for _, i := range random.Perm(versions - 1) {
-		tree.DeleteVersion(int64(i + 1))
+		tree.DeleteVersion(uint64(i + 1))
 	}
 
 	// After cleaning up all previous versions, we should have as many nodes
@@ -619,14 +619,14 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	preHash := tree.Hash()
 	require.NotNil(preHash)
 
-	require.Equal(int64(6), tree.Version())
+	require.Equal(uint64(6), tree.Version())
 
 	// Reload the tree, to test that roots and orphans are properly loaded.
 	ntree := NewMutableTree(d, 0)
 	ntree.Load()
 
 	require.False(ntree.IsEmpty())
-	require.Equal(int64(6), ntree.Version())
+	require.Equal(uint64(6), ntree.Version())
 
 	postHash := ntree.Hash()
 	require.Equal(preHash, postHash)
@@ -642,7 +642,7 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	ntree.DeleteVersion(3)
 
 	require.False(ntree.IsEmpty())
-	require.Equal(int64(4), ntree.Size())
+	require.Equal(uint64(4), ntree.Size())
 	require.Len(ntree.ndb.nodes(), ntree.nodeSize())
 }
 
@@ -698,7 +698,7 @@ func TestVersionedCheckpoints(t *testing.T) {
 
 	for i := 1; i <= versions; i++ {
 		if i%versionsPerCheckpoint != 0 {
-			tree.DeleteVersion(int64(i))
+			tree.DeleteVersion(uint64(i))
 		}
 	}
 
@@ -714,7 +714,7 @@ func TestVersionedCheckpoints(t *testing.T) {
 	for i := 1; i <= versions; i++ {
 		if i%versionsPerCheckpoint != 0 {
 			for _, k := range keys[int64(i)] {
-				_, val := tree.GetVersioned(k, int64(i))
+				_, val := tree.GetVersioned(k, uint64(i))
 				require.Nil(val)
 			}
 		}
@@ -724,7 +724,7 @@ func TestVersionedCheckpoints(t *testing.T) {
 	for i := 1; i <= versions; i++ {
 		for _, k := range keys[int64(i)] {
 			if i%versionsPerCheckpoint == 0 {
-				_, val := tree.GetVersioned(k, int64(i))
+				_, val := tree.GetVersioned(k, uint64(i))
 				require.NotEmpty(val)
 			}
 		}
@@ -935,7 +935,7 @@ func TestVersionedTreeEfficiency(t *testing.T) {
 	keysDeleted := 0
 	for i := 1; i < versions; i++ {
 		sizeBefore := len(tree.ndb.nodes())
-		tree.DeleteVersion(int64(i))
+		tree.DeleteVersion(uint64(i))
 		sizeAfter := len(tree.ndb.nodes())
 
 		change := sizeBefore - sizeAfter
@@ -1113,7 +1113,7 @@ func TestRollback(t *testing.T) {
 
 	tree.SaveVersion()
 
-	require.Equal(int64(2), tree.Size())
+	require.Equal(uint64(2), tree.Size())
 
 	_, val := tree.Get([]byte("r"))
 	require.Nil(val)
@@ -1143,7 +1143,7 @@ func TestOverwrite(t *testing.T) {
 
 	// Reload tree at version 1
 	tree = NewMutableTree(mdb, 0)
-	_, err = tree.LoadVersion(int64(1))
+	_, err = tree.LoadVersion(uint64(1))
 	require.NoError(err, "LoadVersion should not fail")
 
 	// Attempt to put a different kv pair into the tree and save
@@ -1173,20 +1173,20 @@ func TestLoadVersionForOverwriting(t *testing.T) {
 	}
 
 	tree = NewMutableTree(mdb, 0)
-	targetVersion, err := tree.LoadVersionForOverwriting(int64(maxLength * 2))
-	require.Equal(targetVersion, int64(maxLength), "targetVersion shouldn't larger than the actual tree latest version")
+	targetVersion, err := tree.LoadVersionForOverwriting(uint64(maxLength * 2))
+	require.Equal(targetVersion, uint64(maxLength), "targetVersion shouldn't larger than the actual tree latest version")
 
 	tree = NewMutableTree(mdb, 0)
-	_, err = tree.LoadVersionForOverwriting(int64(maxLength / 2))
+	_, err = tree.LoadVersionForOverwriting(uint64(maxLength / 2))
 	require.NoError(err, "LoadVersion should not fail")
 
 	for version := 1; version <= maxLength/2; version++ {
-		exist := tree.VersionExists(int64(version))
+		exist := tree.VersionExists(uint64(version))
 		require.True(exist, "versions no more than 50 should exist")
 	}
 
 	for version := (maxLength / 2) + 1; version <= maxLength; version++ {
-		exist := tree.VersionExists(int64(version))
+		exist := tree.VersionExists(uint64(version))
 		require.False(exist, "versions more than 50 should have been deleted")
 	}
 
@@ -1200,7 +1200,7 @@ func TestLoadVersionForOverwriting(t *testing.T) {
 
 	// Reload tree at version 50, the latest tree version is 52
 	tree = NewMutableTree(mdb, 0)
-	_, err = tree.LoadVersion(int64(maxLength / 2))
+	_, err = tree.LoadVersion(uint64(maxLength / 2))
 	require.NoError(err, "LoadVersion should not fail")
 
 	tree.Set([]byte("key49"), []byte("value49 different"))

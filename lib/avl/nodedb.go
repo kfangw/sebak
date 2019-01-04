@@ -35,7 +35,7 @@ type nodeDB struct {
 	db    db.DB     // Persistent node storage.
 	batch db.Batch  // Batched writing buffer.
 
-	latestVersion  int64
+	latestVersion  uint64
 	nodeCache      map[string]*list.Element // Node cache.
 	nodeCacheSize  int                      // Node cache size limit in elements.
 	nodeCacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
@@ -145,7 +145,7 @@ func (ndb *nodeDB) SaveBranch(node *Node) []byte {
 }
 
 // DeleteVersion deletes a tree version from disk.
-func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) {
+func (ndb *nodeDB) DeleteVersion(version uint64, checkLatestVersion bool) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
@@ -156,7 +156,7 @@ func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) {
 // Saves orphaned nodes to disk under a special prefix.
 // version: the new version being saved.
 // orphans: the orphan nodes created since version-1
-func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) {
+func (ndb *nodeDB) SaveOrphans(version uint64, orphans map[string]uint64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
@@ -168,7 +168,7 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) {
 }
 
 // Saves a single orphan to disk.
-func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion int64) {
+func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion uint64) {
 	if fromVersion > toVersion {
 		panic(fmt.Sprintf("Orphan expires before it comes alive.  %d > %d", fromVersion, toVersion))
 	}
@@ -178,14 +178,14 @@ func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion int64) {
 
 // deleteOrphans deletes orphaned nodes from disk, and the associated orphan
 // entries.
-func (ndb *nodeDB) deleteOrphans(version int64) {
+func (ndb *nodeDB) deleteOrphans(version uint64) {
 	// Will be zero if there is no previous version.
 	predecessor := ndb.getPreviousVersion(version)
 
 	// Traverse orphans with a lifetime ending at the version specified.
 	// TODO optimize.
 	ndb.traverseOrphansVersion(version, func(key, hash []byte) {
-		var fromVersion, toVersion int64
+		var fromVersion, toVersion uint64
 
 		// See comment on `orphanKeyFmt`. Note that here, `version` and
 		// `toVersion` are always equal.
@@ -214,32 +214,32 @@ func (ndb *nodeDB) nodeKey(hash []byte) []byte {
 	return nodeKeyFormat.KeyBytes(hash)
 }
 
-func (ndb *nodeDB) orphanKey(fromVersion, toVersion int64, hash []byte) []byte {
+func (ndb *nodeDB) orphanKey(fromVersion, toVersion uint64, hash []byte) []byte {
 	return orphanKeyFormat.Key(toVersion, fromVersion, hash)
 }
 
-func (ndb *nodeDB) rootKey(version int64) []byte {
+func (ndb *nodeDB) rootKey(version uint64) []byte {
 	return rootKeyFormat.Key(version)
 }
 
-func (ndb *nodeDB) getLatestVersion() int64 {
+func (ndb *nodeDB) getLatestVersion() uint64 {
 	if ndb.latestVersion == 0 {
 		ndb.latestVersion = ndb.getPreviousVersion(1<<63 - 1)
 	}
 	return ndb.latestVersion
 }
 
-func (ndb *nodeDB) updateLatestVersion(version int64) {
+func (ndb *nodeDB) updateLatestVersion(version uint64) {
 	if ndb.latestVersion < version {
 		ndb.latestVersion = version
 	}
 }
 
-func (ndb *nodeDB) resetLatestVersion(version int64) {
+func (ndb *nodeDB) resetLatestVersion(version uint64) {
 	ndb.latestVersion = version
 }
 
-func (ndb *nodeDB) getPreviousVersion(version int64) int64 {
+func (ndb *nodeDB) getPreviousVersion(version uint64) uint64 {
 	itr := ndb.db.Iterator(
 		rootKeyFormat.Key(),
 		rootKeyFormat.Key(version),
@@ -247,8 +247,8 @@ func (ndb *nodeDB) getPreviousVersion(version int64) int64 {
 	)
 	defer itr.Close()
 
-	pversion := int64(-1)
 	for exhausted := len(itr.Key()) == 0; !exhausted; exhausted = !itr.Next() {
+		var pversion uint64
 		k := itr.Key()
 		rootKeyFormat.Scan(k, &pversion)
 		return pversion
@@ -258,7 +258,7 @@ func (ndb *nodeDB) getPreviousVersion(version int64) int64 {
 }
 
 // deleteRoot deletes the root entry from disk, but not the node it points to.
-func (ndb *nodeDB) deleteRoot(version int64, checkLatestVersion bool) {
+func (ndb *nodeDB) deleteRoot(version uint64, checkLatestVersion bool) {
 	if checkLatestVersion && version == ndb.getLatestVersion() {
 		panic("Tried to delete latest version")
 	}
@@ -276,7 +276,7 @@ func (ndb *nodeDB) traverseOrphans(fn func(k, v []byte)) {
 }
 
 // Traverse orphans ending at a certain version.
-func (ndb *nodeDB) traverseOrphansVersion(version int64, fn func(k, v []byte)) {
+func (ndb *nodeDB) traverseOrphansVersion(version uint64, fn func(k, v []byte)) {
 	ndb.traverse(orphanKeyFormat.Key(version), nil, false, fn)
 }
 
@@ -319,15 +319,15 @@ func (ndb *nodeDB) Commit() {
 	ndb.batch = ndb.db.NewBatch()
 }
 
-func (ndb *nodeDB) getRoot(version int64) []byte {
+func (ndb *nodeDB) getRoot(version uint64) []byte {
 	return ndb.db.Get(ndb.rootKey(version))
 }
 
-func (ndb *nodeDB) getRoots() (map[int64][]byte, error) {
-	roots := map[int64][]byte{}
+func (ndb *nodeDB) getRoots() (map[uint64][]byte, error) {
+	roots := map[uint64][]byte{}
 
 	ndb.traverse(rootKeyFormat.Key(), nil, false, func(k, v []byte) {
-		var version int64
+		var version uint64
 		rootKeyFormat.Scan(k, &version)
 		roots[version] = v
 	})
@@ -336,7 +336,7 @@ func (ndb *nodeDB) getRoots() (map[int64][]byte, error) {
 
 // SaveRoot creates an entry on disk for the given root, so that it can be
 // loaded later.
-func (ndb *nodeDB) SaveRoot(root *Node, version int64) error {
+func (ndb *nodeDB) SaveRoot(root *Node, version uint64) error {
 	if len(root.hash) == 0 {
 		panic("Hash should not be empty")
 	}
@@ -344,11 +344,11 @@ func (ndb *nodeDB) SaveRoot(root *Node, version int64) error {
 }
 
 // SaveEmptyRoot creates an entry on disk for an empty root.
-func (ndb *nodeDB) SaveEmptyRoot(version int64) error {
+func (ndb *nodeDB) SaveEmptyRoot(version uint64) error {
 	return ndb.saveRoot([]byte{}, version)
 }
 
-func (ndb *nodeDB) saveRoot(hash []byte, version int64) error {
+func (ndb *nodeDB) saveRoot(hash []byte, version uint64) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
@@ -394,7 +394,7 @@ func (ndb *nodeDB) orphans() [][]byte {
 	return orphans
 }
 
-func (ndb *nodeDB) roots() map[int64][]byte {
+func (ndb *nodeDB) roots() map[uint64][]byte {
 	roots, _ := ndb.getRoots()
 	return roots
 }

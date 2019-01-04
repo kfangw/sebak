@@ -38,7 +38,7 @@ func (t *ImmutableTree) String() string {
 }
 
 // Size returns the number of leaf nodes in the tree.
-func (t *ImmutableTree) Size() int64 {
+func (t *ImmutableTree) Size() uint64 {
 	if t.root == nil {
 		return 0
 	}
@@ -46,12 +46,12 @@ func (t *ImmutableTree) Size() int64 {
 }
 
 // Version returns the version of the tree.
-func (t *ImmutableTree) Version() int64 {
+func (t *ImmutableTree) Version() uint64 {
 	return t.version
 }
 
 // Height returns the height of the tree.
-func (t *ImmutableTree) Height() int8 {
+func (t *ImmutableTree) Height() uint64 {
 	if t.root == nil {
 		return 0
 	}
@@ -129,7 +129,7 @@ func (t *ImmutableTree) IterateRange(start, end []byte, ascending bool, fn func(
 
 // IterateRangeInclusive makes a callback for all nodes with key between start and end inclusive.
 // If either are nil, then it is open on that side (nil, nil is the same as Iterate)
-func (t *ImmutableTree) IterateRangeInclusive(start, end []byte, ascending bool, fn func(key, value []byte, version int64) bool) (stopped bool) {
+func (t *ImmutableTree) IterateRangeInclusive(start, end []byte, ascending bool, fn func(key, value []byte, version uint64) bool) (stopped bool) {
 	if t.root == nil {
 		return false
 	}

@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/tendermint/go-amino"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	cmn "github.com/tendermint/tendermint/libs/common"
 	"io"
@@ -220,44 +219,54 @@ func (node *Node) hashWithCount() ([]byte, int64) {
 // Writes the node's hash to the given io.Writer. This function expects
 // child hashes to be already set.
 func (node *Node) writeHashBytes(w io.Writer) cmn.Error {
-	err := amino.EncodeInt8(w, node.height)
-	if err != nil {
-		return cmn.ErrorWrap(err, "writing height")
+
+	var cause error
+
+	cause = rlp.Encode(w, node.height)
+	if cause != nil {
+		return cmn.ErrorWrap(cause, "writing height")
 	}
-	err = amino.EncodeVarint(w, node.size)
-	if err != nil {
-		return cmn.ErrorWrap(err, "writing size")
+	cause = rlp.Encode(w, node.size)
+	if cause != nil {
+		return cmn.ErrorWrap(cause, "writing size")
 	}
-	err = amino.EncodeVarint(w, node.version)
-	if err != nil {
-		return cmn.ErrorWrap(err, "writing version")
+	cause = rlp.Encode(w, node.version)
+	if cause != nil {
+		return cmn.ErrorWrap(cause, "writing version")
 	}
 
 	// Key is not written for inner nodes, unlike writeBytes.
 
 	if node.isLeaf() {
-		err = amino.EncodeByteSlice(w, node.key)
-		if err != nil {
-			return cmn.ErrorWrap(err, "writing key")
+		cause = rlp.Encode(w, node.key)
+		if cause != nil {
+			return cmn.ErrorWrap(cause, "writing key")
 		}
 		// Indirection needed to provide proofs without values.
 		// (e.g. proofLeafNode.ValueHash)
+
+
 		valueHash := tmhash.Sum(node.value)
-		err = amino.EncodeByteSlice(w, valueHash)
-		if err != nil {
-			return cmn.ErrorWrap(err, "writing value")
+
+		cause = rlp.Encode(w, valueHash)
+		if cause != nil {
+			return cmn.ErrorWrap(cause, "writing value")
 		}
 	} else {
-		if node.leftHash == nil || node.rightHash == nil {
-			panic("Found an empty child hash")
+		if node.leftHash == nil {
+			panic("node.leftHash was nil in writeBytes")
 		}
-		err = amino.EncodeByteSlice(w, node.leftHash)
-		if err != nil {
-			return cmn.ErrorWrap(err, "writing left hash")
+		cause = rlp.Encode(w, node.leftHash)
+		if cause != nil {
+			return cmn.ErrorWrap(cause, "writing left hash")
 		}
-		err = amino.EncodeByteSlice(w, node.rightHash)
-		if err != nil {
-			return cmn.ErrorWrap(err, "writing right hash")
+
+		if node.rightHash == nil {
+			panic("node.rightHash was nil in writeBytes")
+		}
+		cause = rlp.Encode(w, node.rightHash)
+		if cause != nil {
+			return cmn.ErrorWrap(cause, "writing right hash")
 		}
 	}
 
@@ -285,47 +294,9 @@ func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err c
 
 // Writes the node as a serialized byte slice to the supplied io.Writer.
 func (node *Node) writeBytes(w io.Writer) cmn.Error {
-	var cause error
-	cause = amino.EncodeInt8(w, node.height)
+	cause := rlp.Encode(w, node)
 	if cause != nil {
-		return cmn.ErrorWrap(cause, "writing height")
-	}
-	cause = amino.EncodeVarint(w, node.size)
-	if cause != nil {
-		return cmn.ErrorWrap(cause, "writing size")
-	}
-	cause = amino.EncodeVarint(w, node.version)
-	if cause != nil {
-		return cmn.ErrorWrap(cause, "writing version")
-	}
-
-	// Unlike writeHashBytes, key is written for inner nodes.
-	cause = amino.EncodeByteSlice(w, node.key)
-	if cause != nil {
-		return cmn.ErrorWrap(cause, "writing key")
-	}
-
-	if node.isLeaf() {
-		cause = amino.EncodeByteSlice(w, node.value)
-		if cause != nil {
-			return cmn.ErrorWrap(cause, "writing value")
-		}
-	} else {
-		if node.leftHash == nil {
-			panic("node.leftHash was nil in writeBytes")
-		}
-		cause = amino.EncodeByteSlice(w, node.leftHash)
-		if cause != nil {
-			return cmn.ErrorWrap(cause, "writing left hash")
-		}
-
-		if node.rightHash == nil {
-			panic("node.rightHash was nil in writeBytes")
-		}
-		cause = amino.EncodeByteSlice(w, node.rightHash)
-		if cause != nil {
-			return cmn.ErrorWrap(cause, "writing right hash")
-		}
+		return cmn.ErrorWrap(cause, "rlp encode")
 	}
 	return nil
 }
@@ -362,7 +333,7 @@ func (node *Node) get(ndb *nodeDB, key []byte) (index int64, value []byte) {
 	}
 	rightNode := node.getRightNode(ndb)
 	index, value = rightNode.get(ndb, key)
-	index += node.size - rightNode.size
+	index += int64(node.size) - int64(rightNode.size)
 	return index, value
 }
 
@@ -377,10 +348,10 @@ func (node *Node) getByIndex(ndb *nodeDB, index int64) (key []byte, value []byte
 	// sizes as well as left/right hash.
 	leftNode := node.getLeftNode(ndb)
 
-	if index < leftNode.size {
+	if index < int64(leftNode.size) {
 		return leftNode.getByIndex(ndb, index)
 	}
-	return node.getRightNode(ndb).getByIndex(ndb, index-leftNode.size)
+	return node.getRightNode(ndb).getByIndex(ndb, index-int64(leftNode.size))
 }
 func (node *Node) getLeftNode(ndb *nodeDB) *Node {
 	if node.leftNode != nil {
@@ -398,7 +369,7 @@ func (node *Node) getRightNode(ndb *nodeDB) *Node {
 
 // NOTE: mutates height and size
 func (node *Node) calcHeightAndSize(ndb *nodeDB) {
-	node.height = maxInt8(node.getLeftNode(ndb).height, node.getRightNode(ndb).height) + 1
+	node.height = maxUInt64(node.getLeftNode(ndb).height, node.getRightNode(ndb).height) + 1
 	node.size = node.getLeftNode(ndb).size + node.getRightNode(ndb).size
 }
 
@@ -473,7 +444,7 @@ func (node *Node) lmd(ndb *nodeDB) *Node {
 	return node.getLeftNode(ndb).lmd(ndb)
 }
 
-func maxInt8(a, b int8) int8 {
+func maxUInt64(a, b uint64) uint64 {
 	if a > b {
 		return a
 	}
