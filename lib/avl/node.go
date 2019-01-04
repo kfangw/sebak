@@ -6,6 +6,7 @@ package avl
 import (
 	"bytes"
 	"fmt"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/tendermint/go-amino"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	cmn "github.com/tendermint/tendermint/libs/common"
@@ -16,19 +17,20 @@ import (
 type Node struct {
 	key       []byte
 	value     []byte
-	version   int64
-	height    int8
-	size      int64
+	version   uint64
+	height    uint64
+	size      uint64
 	hash      []byte
 	leftHash  []byte
-	leftNode  *Node
 	rightHash []byte
-	rightNode *Node
-	persisted bool
+
+	leftNode  *Node `rlp:"-"`
+	rightNode *Node `rlp:"-"`
+	persisted bool `rlp:"-"`
 }
 
 // NewNode returns a new node from a key, value and version.
-func NewNode(key []byte, value []byte, version int64) *Node {
+func NewNode(key []byte, value []byte, version uint64) *Node {
 	return &Node{
 		key:     key,
 		value:   value,
@@ -42,63 +44,104 @@ func NewNode(key []byte, value []byte, version int64) *Node {
 //
 // The new node doesn't have its hash saved or set. The caller must set it
 // afterwards.
-func MakeNode(buf []byte) (*Node, cmn.Error) {
 
-	// Read node header (height, size, version, key).
-	height, n, cause := amino.DecodeInt8(buf)
+func (node *Node) EncodeRLP(w io.Writer) (err error) {
+	var cause error
+	cause = rlp.Encode(w, node.height)
 	if cause != nil {
-		return nil, cmn.ErrorWrap(cause, "decoding node.height")
+		return cmn.ErrorWrap(cause, "writing height")
 	}
-	buf = buf[n:]
-
-	size, n, cause := amino.DecodeVarint(buf)
+	cause = rlp.Encode(w, node.size)
 	if cause != nil {
-		return nil, cmn.ErrorWrap(cause, "decoding node.size")
+		return cmn.ErrorWrap(cause, "writing size")
 	}
-	buf = buf[n:]
-
-	ver, n, cause := amino.DecodeVarint(buf)
+	cause = rlp.Encode(w, node.version)
 	if cause != nil {
-		return nil, cmn.ErrorWrap(cause, "decoding node.version")
+		return cmn.ErrorWrap(cause, "writing version")
 	}
-	buf = buf[n:]
 
-	key, n, cause := amino.DecodeByteSlice(buf)
+	// Unlike writeHashBytes, key is written for inner nodes.
+	cause = rlp.Encode(w, node.key)
 	if cause != nil {
-		return nil, cmn.ErrorWrap(cause, "decoding node.key")
+		return cmn.ErrorWrap(cause, "writing key")
 	}
-	buf = buf[n:]
-
-	node := &Node{
-		height:  height,
-		size:    size,
-		version: ver,
-		key:     key,
-	}
-
-	// Read node body.
 
 	if node.isLeaf() {
-		val, _, cause := amino.DecodeByteSlice(buf)
+		cause = rlp.Encode(w, node.value)
 		if cause != nil {
-			return nil, cmn.ErrorWrap(cause, "decoding node.value")
+			return cmn.ErrorWrap(cause, "writing value")
+		}
+	} else {
+		if node.leftHash == nil {
+			panic("node.leftHash was nil in writeBytes")
+		}
+		cause = rlp.Encode(w, node.leftHash)
+		if cause != nil {
+			return cmn.ErrorWrap(cause, "writing left hash")
+		}
+
+		if node.rightHash == nil {
+			panic("node.rightHash was nil in writeBytes")
+		}
+		cause = rlp.Encode(w, node.rightHash)
+		if cause != nil {
+			return cmn.ErrorWrap(cause, "writing right hash")
+		}
+	}
+	return nil
+}
+func (node *Node) DecodeRLP(s *rlp.Stream) (error) {
+	height, cause := s.Uint()
+	if cause != nil {
+		return cmn.ErrorWrap(cause, "decoding node.height")
+	}
+	size, cause := s.Uint()
+	if cause != nil {
+		return cmn.ErrorWrap(cause, "decoding node.size")
+	}
+	ver, cause := s.Uint()
+	if cause != nil {
+		return cmn.ErrorWrap(cause, "decoding node.version")
+	}
+	key, cause := s.Bytes()
+	if cause != nil {
+		return cmn.ErrorWrap(cause, "decoding node.key")
+	}
+
+	node.height = height
+	node.size = size
+	node.version = ver
+	node.key = key
+
+	// Read node body.
+	if node.isLeaf() {
+		val, cause := s.Bytes()
+		if cause != nil {
+			return cmn.ErrorWrap(cause, "decoding node.value")
 		}
 		node.value = val
 	} else { // Read children.
-		leftHash, n, cause := amino.DecodeByteSlice(buf)
+		leftHash, cause := s.Bytes()
 		if cause != nil {
-			return nil, cmn.ErrorWrap(cause, "deocding node.leftHash")
+			return cmn.ErrorWrap(cause, "deocding node.leftHash")
 		}
-		buf = buf[n:]
 
-		rightHash, _, cause := amino.DecodeByteSlice(buf)
+		rightHash, cause := s.Bytes()
 		if cause != nil {
-			return nil, cmn.ErrorWrap(cause, "decoding node.rightHash")
+			return cmn.ErrorWrap(cause, "decoding node.rightHash")
 		}
 		node.leftHash = leftHash
 		node.rightHash = rightHash
 	}
-	return node, nil
+	return nil
+}
+func MakeNode(buf []byte) (*Node, cmn.Error) {
+	var n Node
+	cause := rlp.DecodeBytes(buf, &n)
+	if cause != nil {
+		return nil, cmn.ErrorWrap(cause, "decoding rlp")
+	}
+	return &n, nil
 }
 
 // String returns a string representation of the node.
@@ -116,7 +159,7 @@ func (node *Node) String() string {
 }
 
 // clone creates a shallow copy of a node with its hash set to nil.
-func (node *Node) clone(version int64) *Node {
+func (node *Node) clone(version uint64) *Node {
 	if node.isLeaf() {
 		panic("Attempt to copy a leaf node")
 	}
@@ -238,6 +281,7 @@ func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err c
 
 	return
 }
+
 
 // Writes the node as a serialized byte slice to the supplied io.Writer.
 func (node *Node) writeBytes(w io.Writer) cmn.Error {

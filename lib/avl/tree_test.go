@@ -1,10 +1,9 @@
 package avl
 
 import (
+	"boscoin.io/sebak/lib/db"
 	"bytes"
 	"flag"
-	"boscoin.io/sebak/lib/db"
-	"os"
 	//"runtime"
 	"strconv"
 	"testing"
@@ -29,13 +28,9 @@ func init() {
 }
 
 func getTestDB() (db.DB, func()) {
-	d, err := db.NewLevelDB("test", ".")
-	if err != nil {
-		panic(err)
-	}
+	d := db.NewMemDB()
 	return d, func() {
 		d.Close()
-		os.RemoveAll("./test.db")
 	}
 }
 
@@ -64,7 +59,6 @@ func TestVersionedRandomTree(t *testing.T) {
 	// Before deleting old versions, we should have equal or more nodes in the
 	// db than in the current tree version.
 	require.True(len(tree.ndb.nodes()) >= tree.nodeSize())
-
 	for i := 1; i < versions; i++ {
 		tree.DeleteVersion(int64(i))
 	}
@@ -110,7 +104,6 @@ func TestVersionedRandomTreeSmallKeys(t *testing.T) {
 	// After cleaning up all previous versions, we should have as many nodes
 	// in the db as in the current tree version. The simple tree must be equal
 	// too.
-	t.Log(tree.String())
 	require.Len(tree.ndb.leafNodes(), int(tree.Size()))
 	require.Len(tree.ndb.nodes(), tree.nodeSize())
 	require.Len(tree.ndb.nodes(), singleVersionTree.nodeSize())

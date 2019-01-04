@@ -12,7 +12,7 @@ import (
 type ImmutableTree struct {
 	root    *Node
 	ndb     *nodeDB
-	version int64
+	version uint64
 }
 
 // NewImmutableTree creates both in-memory and persistent instances

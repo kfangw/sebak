@@ -116,7 +116,7 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 func (ndb *nodeDB) Has(hash []byte) bool {
 	key := ndb.nodeKey(hash)
 
-	return ndb.db.Get(key) != nil
+	return ndb.db.Has(key)
 }
 
 // SaveBranch saves the given node and all of its descendants.
@@ -241,14 +241,14 @@ func (ndb *nodeDB) resetLatestVersion(version int64) {
 
 func (ndb *nodeDB) getPreviousVersion(version int64) int64 {
 	itr := ndb.db.Iterator(
-		nil,
+		rootKeyFormat.Key(),
 		rootKeyFormat.Key(version),
 		true,
 	)
 	defer itr.Close()
 
 	pversion := int64(-1)
-	for exhausted := len(itr.Key()) == 0; !exhausted; exhausted = itr.Next() {
+	for exhausted := len(itr.Key()) == 0; !exhausted; exhausted = !itr.Next() {
 		k := itr.Key()
 		rootKeyFormat.Scan(k, &pversion)
 		return pversion
@@ -267,31 +267,25 @@ func (ndb *nodeDB) deleteRoot(version int64, checkLatestVersion bool) {
 	ndb.batch.Delete(key)
 }
 
+func (ndb *nodeDB) traverseRoots(fn func(k, v []byte)) {
+	ndb.traverse(rootKeyFormat.Key(), nil, false, fn)
+}
+
 func (ndb *nodeDB) traverseOrphans(fn func(k, v []byte)) {
-	ndb.traversePrefix(orphanKeyFormat.Key(), fn)
+	ndb.traverse(orphanKeyFormat.Key(), nil, false, fn)
 }
 
 // Traverse orphans ending at a certain version.
 func (ndb *nodeDB) traverseOrphansVersion(version int64, fn func(k, v []byte)) {
-	ndb.traversePrefix(orphanKeyFormat.Key(version), fn)
+	ndb.traverse(orphanKeyFormat.Key(version), nil, false, fn)
 }
 
 // Traverse all keys.
-func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
-	itr := ndb.db.Iterator(nil, nil, false)
+func (ndb *nodeDB) traverse(prefix, cursor []byte, isReverse bool, fn func(key, value []byte)) {
+	itr := ndb.db.Iterator(prefix, cursor, isReverse)
 	defer itr.Close()
 
-	for exhausted := len(itr.Key()) == 0; !exhausted; exhausted = itr.Next() {
-		fn(itr.Key(), itr.Value())
-	}
-}
-
-// Traverse all keys with a certain prefix.
-func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
-	itr := ndb.db.Iterator(prefix, nil, false)
-	defer itr.Close()
-
-	for exhausted := len(itr.Key()) == 0; !exhausted; exhausted = itr.Next() {
+	for exhausted := len(itr.Key()) == 0; !exhausted; exhausted = !itr.Next() {
 		fn(itr.Key(), itr.Value())
 	}
 }
@@ -332,7 +326,7 @@ func (ndb *nodeDB) getRoot(version int64) []byte {
 func (ndb *nodeDB) getRoots() (map[int64][]byte, error) {
 	roots := map[int64][]byte{}
 
-	ndb.traversePrefix(rootKeyFormat.Key(), func(k, v []byte) {
+	ndb.traverse(rootKeyFormat.Key(), nil, false, func(k, v []byte) {
 		var version int64
 		rootKeyFormat.Scan(k, &version)
 		roots[version] = v
@@ -410,7 +404,7 @@ func (ndb *nodeDB) roots() map[int64][]byte {
 // mutations are not always synchronous.
 func (ndb *nodeDB) size() int {
 	size := 0
-	ndb.traverse(func(k, v []byte) {
+	ndb.traverse(nil, nil, false, func(k, v []byte) {
 		size++
 	})
 	return size
@@ -419,7 +413,7 @@ func (ndb *nodeDB) size() int {
 func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node)) {
 	nodes := []*Node{}
 
-	ndb.traversePrefix(nodeKeyFormat.Key(), func(key, value []byte) {
+	ndb.traverse(nodeKeyFormat.Key(), nil, false, func(key, value []byte) {
 		node, err := MakeNode(value)
 		if err != nil {
 			panic(fmt.Sprintf("Couldn't decode node from database: %v", err))
@@ -441,7 +435,7 @@ func (ndb *nodeDB) String() string {
 	var str string
 	index := 0
 
-	ndb.traversePrefix(rootKeyFormat.Key(), func(key, value []byte) {
+	ndb.traverse(rootKeyFormat.Key(), nil, false, func(key, value []byte) {
 		str += fmt.Sprintf("%s: %x\n", string(key), value)
 	})
 	str += "\n"
