@@ -71,33 +71,17 @@ func (t *ImmutableTree) Hash() []byte {
 	if t.root == nil {
 		return nil
 	}
-	hash, _ := t.root.hashWithCount()
+	hash := t.root.hashRecursively(func(*Node) {})
 	return hash
-}
-
-// hashWithCount returns the root hash and hash count.
-func (t *ImmutableTree) hashWithCount() ([]byte, int64) {
-	if t.root == nil {
-		return nil, 0
-	}
-	return t.root.hashWithCount()
 }
 
 // Get returns the index and value of the specified key if it exists, or nil
 // and the next index, if it doesn't.
-func (t *ImmutableTree) Get(key []byte) (index int64, value []byte) {
+func (t *ImmutableTree) Get(key []byte) (value []byte) {
 	if t.root == nil {
-		return 0, nil
+		return nil
 	}
 	return t.root.get(t.ndb, key)
-}
-
-// GetByIndex gets the key and value at the specified index.
-func (t *ImmutableTree) GetByIndex(index int64) (key []byte, value []byte) {
-	if t.root == nil {
-		return nil, nil
-	}
-	return t.root.getByIndex(t.ndb, index)
 }
 
 // Iterate iterates over all keys of the tree, in order.

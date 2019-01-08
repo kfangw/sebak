@@ -4,14 +4,17 @@ package avl
 // The Tree on the other hand favors int.  This is intentional.
 
 import (
+	"boscoin.io/sebak/lib/common"
+	"boscoin.io/sebak/lib/errors"
 	"bytes"
 	"fmt"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/tendermint/tendermint/crypto/tmhash"
-	cmn "github.com/tendermint/tendermint/libs/common"
 	"io"
 )
 
+// =================================================
+// ================ Initializer ====================
+// =================================================
 // Node represents a node in a Tree.
 type Node struct {
 	key       []byte
@@ -23,9 +26,9 @@ type Node struct {
 	leftHash  []byte
 	rightHash []byte
 
-	leftNode  *Node `rlp:"-"`
-	rightNode *Node `rlp:"-"`
-	persisted bool `rlp:"-"`
+	leftNode  *Node
+	rightNode *Node
+	persisted bool
 }
 
 // NewNode returns a new node from a key, value and version.
@@ -41,120 +44,13 @@ func NewNode(key []byte, value []byte, version uint64) *Node {
 
 // MakeNode constructs an *Node from an encoded byte slice.
 //
-// The new node doesn't have its hash saved or set. The caller must set it
-// afterwards.
-
-func (node *Node) EncodeRLP(w io.Writer) (err error) {
-	var cause error
-	cause = rlp.Encode(w, node.height)
-	if cause != nil {
-		return cmn.ErrorWrap(cause, "writing height")
-	}
-	cause = rlp.Encode(w, node.size)
-	if cause != nil {
-		return cmn.ErrorWrap(cause, "writing size")
-	}
-	cause = rlp.Encode(w, node.version)
-	if cause != nil {
-		return cmn.ErrorWrap(cause, "writing version")
-	}
-
-	// Unlike writeHashBytes, key is written for inner nodes.
-	cause = rlp.Encode(w, node.key)
-	if cause != nil {
-		return cmn.ErrorWrap(cause, "writing key")
-	}
-
-	if node.isLeaf() {
-		cause = rlp.Encode(w, node.value)
-		if cause != nil {
-			return cmn.ErrorWrap(cause, "writing value")
-		}
-	} else {
-		if node.leftHash == nil {
-			panic("node.leftHash was nil in writeBytes")
-		}
-		cause = rlp.Encode(w, node.leftHash)
-		if cause != nil {
-			return cmn.ErrorWrap(cause, "writing left hash")
-		}
-
-		if node.rightHash == nil {
-			panic("node.rightHash was nil in writeBytes")
-		}
-		cause = rlp.Encode(w, node.rightHash)
-		if cause != nil {
-			return cmn.ErrorWrap(cause, "writing right hash")
-		}
-	}
-	return nil
-}
-func (node *Node) DecodeRLP(s *rlp.Stream) (error) {
-	height, cause := s.Uint()
-	if cause != nil {
-		return cmn.ErrorWrap(cause, "decoding node.height")
-	}
-	size, cause := s.Uint()
-	if cause != nil {
-		return cmn.ErrorWrap(cause, "decoding node.size")
-	}
-	ver, cause := s.Uint()
-	if cause != nil {
-		return cmn.ErrorWrap(cause, "decoding node.version")
-	}
-	key, cause := s.Bytes()
-	if cause != nil {
-		return cmn.ErrorWrap(cause, "decoding node.key")
-	}
-
-	node.height = height
-	node.size = size
-	node.version = ver
-	node.key = key
-
-	// Read node body.
-	if node.isLeaf() {
-		val, cause := s.Bytes()
-		if cause != nil {
-			return cmn.ErrorWrap(cause, "decoding node.value")
-		}
-		node.value = val
-	} else { // Read children.
-		leftHash, cause := s.Bytes()
-		if cause != nil {
-			return cmn.ErrorWrap(cause, "deocding node.leftHash")
-		}
-
-		rightHash, cause := s.Bytes()
-		if cause != nil {
-			return cmn.ErrorWrap(cause, "decoding node.rightHash")
-		}
-		node.leftHash = leftHash
-		node.rightHash = rightHash
-	}
-	return nil
-}
-func MakeNode(buf []byte) (*Node, cmn.Error) {
+func MakeNode(buf []byte) (*Node, error) {
 	var n Node
 	cause := rlp.DecodeBytes(buf, &n)
 	if cause != nil {
-		return nil, cmn.ErrorWrap(cause, "decoding rlp")
+		return nil, errors.Wrap(cause, "decoding rlp")
 	}
 	return &n, nil
-}
-
-// String returns a string representation of the node.
-func (node *Node) String() string {
-	hashstr := "<no hash>"
-	if len(node.hash) > 0 {
-		hashstr = fmt.Sprintf("%X", node.hash)
-	}
-	return fmt.Sprintf("Node{%s:%s@%d %X;%X}#%s",
-		cmn.ColoredBytes(node.key, cmn.Green, cmn.Blue),
-		cmn.ColoredBytes(node.value, cmn.Cyan, cmn.Blue),
-		node.version,
-		node.leftHash, node.rightHash,
-		hashstr)
 }
 
 // clone creates a shallow copy of a node with its hash set to nil.
@@ -176,81 +72,72 @@ func (node *Node) clone(version uint64) *Node {
 	}
 }
 
+// =================================================
+// ================= Calculate =====================
+// =================================================
+// NOTE: mutates height and size
+func (node *Node) calcHeightAndSize(ndb *nodeDB) {
+	leftNodeHeight := node.getLeftNode(ndb).height
+	rightNodeHeight := node.getRightNode(ndb).height
+	if leftNodeHeight > rightNodeHeight {
+		node.height = leftNodeHeight
+	} else {
+		node.height = rightNodeHeight
+	}
+	node.height++
+	node.size = node.getLeftNode(ndb).size + node.getRightNode(ndb).size
+}
+
+func (node *Node) calcBalance(ndb *nodeDB) int {
+	return int(node.getLeftNode(ndb).height) - int(node.getRightNode(ndb).height)
+}
+
+// String returns a string representation of the node.
+func (node *Node) String() string {
+	hashstr := "<no hash>"
+	if len(node.hash) > 0 {
+		hashstr = fmt.Sprintf("%X", node.hash)
+	}
+	return fmt.Sprintf("Node{@%d %X;%X}#%s",
+		node.version,
+		node.leftHash, node.rightHash,
+		hashstr)
+}
+
 func (node *Node) isLeaf() bool {
 	return node.height == 0
 }
-// Computes the hash of the node without computing its descendants. Must be
-// called on nodes which have descendant node hashes already computed.
-func (node *Node) _hash() []byte {
-	if node.hash != nil {
-		return node.hash
-	}
 
-	h := tmhash.New()
-	buf := new(bytes.Buffer)
-	if err := node.writeHashBytes(buf); err != nil {
-		panic(err)
-	}
-	h.Write(buf.Bytes())
-	node.hash = h.Sum(nil)
-
-	return node.hash
-}
-
-// Hash the node and its descendants recursively. This usually mutates all
-// descendant nodes. Returns the node hash and number of nodes hashed.
-func (node *Node) hashWithCount() ([]byte, int64) {
-	if node.hash != nil {
-		return node.hash, 0
-	}
-
-	h := tmhash.New()
-	buf := new(bytes.Buffer)
-	hashCount, err := node.writeHashBytesRecursively(buf)
-	if err != nil {
-		panic(err)
-	}
-	h.Write(buf.Bytes())
-	node.hash = h.Sum(nil)
-
-	return node.hash, hashCount + 1
-}
-
-// Writes the node's hash to the given io.Writer. This function expects
-// child hashes to be already set.
-func (node *Node) writeHashBytes(w io.Writer) cmn.Error {
-
+// =================================================
+// ================== Enc/Dec ======================
+// =================================================
+// The new node doesn't have its hash saved or set. The caller must set it
+// afterwards.
+func (node *Node) EncodeRLP(w io.Writer) (err error) {
 	var cause error
-
 	cause = rlp.Encode(w, node.height)
 	if cause != nil {
-		return cmn.ErrorWrap(cause, "writing height")
+		return errors.Wrap(cause, "writing height")
 	}
 	cause = rlp.Encode(w, node.size)
 	if cause != nil {
-		return cmn.ErrorWrap(cause, "writing size")
+		return errors.Wrap(cause, "writing size")
 	}
 	cause = rlp.Encode(w, node.version)
 	if cause != nil {
-		return cmn.ErrorWrap(cause, "writing version")
+		return errors.Wrap(cause, "writing version")
 	}
 
-	// Key is not written for inner nodes, unlike writeBytes.
+	// Unlike writeHashBytes, key is written for inner nodes.
+	cause = rlp.Encode(w, node.key)
+	if cause != nil {
+		return errors.Wrap(cause, "writing key")
+	}
 
 	if node.isLeaf() {
-		cause = rlp.Encode(w, node.key)
+		cause = rlp.Encode(w, node.value)
 		if cause != nil {
-			return cmn.ErrorWrap(cause, "writing key")
-		}
-		// Indirection needed to provide proofs without values.
-		// (e.g. proofLeafNode.ValueHash)
-
-
-		valueHash := tmhash.Sum(node.value)
-
-		cause = rlp.Encode(w, valueHash)
-		if cause != nil {
-			return cmn.ErrorWrap(cause, "writing value")
+			return errors.Wrap(cause, "writing value")
 		}
 	} else {
 		if node.leftHash == nil {
@@ -258,7 +145,7 @@ func (node *Node) writeHashBytes(w io.Writer) cmn.Error {
 		}
 		cause = rlp.Encode(w, node.leftHash)
 		if cause != nil {
-			return cmn.ErrorWrap(cause, "writing left hash")
+			return errors.Wrap(cause, "writing left hash")
 		}
 
 		if node.rightHash == nil {
@@ -266,41 +153,106 @@ func (node *Node) writeHashBytes(w io.Writer) cmn.Error {
 		}
 		cause = rlp.Encode(w, node.rightHash)
 		if cause != nil {
-			return cmn.ErrorWrap(cause, "writing right hash")
+			return errors.Wrap(cause, "writing right hash")
 		}
 	}
+	return nil
+}
+func (node *Node) DecodeRLP(s *rlp.Stream) error {
+	height, cause := s.Uint()
+	if cause != nil {
+		return errors.Wrap(cause, "decoding node.height")
+	}
+	size, cause := s.Uint()
+	if cause != nil {
+		return errors.Wrap(cause, "decoding node.size")
+	}
+	ver, cause := s.Uint()
+	if cause != nil {
+		return errors.Wrap(cause, "decoding node.version")
+	}
+	key, cause := s.Bytes()
+	if cause != nil {
+		return errors.Wrap(cause, "decoding node.key")
+	}
 
+	node.height = height
+	node.size = size
+	node.version = ver
+	node.key = key
+
+	// Read node body.
+	if node.isLeaf() {
+		val, cause := s.Bytes()
+		if cause != nil {
+			return errors.Wrap(cause, "decoding node.value")
+		}
+		node.value = val
+	} else { // Read children.
+		leftHash, cause := s.Bytes()
+		if cause != nil {
+			return errors.Wrap(cause, "deocding node.leftHash")
+		}
+
+		rightHash, cause := s.Bytes()
+		if cause != nil {
+			return errors.Wrap(cause, "decoding node.rightHash")
+		}
+		node.leftHash = leftHash
+		node.rightHash = rightHash
+	}
 	return nil
 }
 
-// Writes the node's hash to the given io.Writer.
-// This function has the side-effect of calling hashWithCount.
-func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err cmn.Error) {
+// =================================================
+// ================== Hashing ======================
+// =================================================
+
+// Computes the hash of the node without computing its descendants. Must be
+// called on nodes which have descendant node hashes already computed.
+func (node *Node) _hash() []byte {
+	if node.hash != nil {
+		return node.hash
+	}
+
+	buf := new(bytes.Buffer)
+	if err := node.EncodeRLP(buf); err != nil {
+		//if err := node.writeHashBytes(buf); err != nil {
+		panic(err)
+	}
+	node.hash = common.MakeHash(buf.Bytes())
+
+	return node.hash
+}
+
+// Hash the node and its descendants recursively. This usually mutates all
+// descendant nodes. Returns the node hash and number of nodes hashed.
+func (node *Node) hashRecursively(cb func(n *Node)) []byte {
+	if node.hash != nil {
+		return node.hash
+	}
+
+	buf := new(bytes.Buffer)
 	if node.leftNode != nil {
-		leftHash, leftCount := node.leftNode.hashWithCount()
-		node.leftHash = leftHash
-		hashCount += leftCount
+		node.leftHash = node.leftNode.hashRecursively(cb)
 	}
 	if node.rightNode != nil {
-		rightHash, rightCount := node.rightNode.hashWithCount()
-		node.rightHash = rightHash
-		hashCount += rightCount
+		node.rightHash = node.rightNode.hashRecursively(cb)
 	}
-	err = node.writeHashBytes(w)
+	err := node.EncodeRLP(buf)
+	if err != nil {
+		panic(err)
+	}
+	node.hash = common.MakeHash(buf.Bytes())
 
-	return
+	cb(node)
+
+	return node.hash
 }
 
-
-// Writes the node as a serialized byte slice to the supplied io.Writer.
-func (node *Node) writeBytes(w io.Writer) cmn.Error {
-	cause := rlp.Encode(w, node)
-	if cause != nil {
-		return cmn.ErrorWrap(cause, "rlp encode")
-	}
-	return nil
-}
-
+// =================================================
+// =================== Getters =====================
+// =================================================
 // Check if the node has a descendant with the given key.
 func (node *Node) has(ndb *nodeDB, key []byte) (has bool) {
 	if bytes.Equal(node.key, key) {
@@ -316,43 +268,21 @@ func (node *Node) has(ndb *nodeDB, key []byte) (has bool) {
 }
 
 // Get a key under the node.
-func (node *Node) get(ndb *nodeDB, key []byte) (index int64, value []byte) {
+func (node *Node) get(ndb *nodeDB, key []byte) (value []byte) {
 	if node.isLeaf() {
-		switch bytes.Compare(node.key, key) {
-		case -1:
-			return 1, nil
-		case 1:
-			return 0, nil
-		default:
-			return 0, node.value
+		if bytes.Compare(node.key, key) == 0 {
+			return node.value
+		} else {
+			return nil
 		}
 	}
 
 	if bytes.Compare(key, node.key) < 0 {
 		return node.getLeftNode(ndb).get(ndb, key)
 	}
-	rightNode := node.getRightNode(ndb)
-	index, value = rightNode.get(ndb, key)
-	index += int64(node.size) - int64(rightNode.size)
-	return index, value
+	return node.getRightNode(ndb).get(ndb, key)
 }
 
-func (node *Node) getByIndex(ndb *nodeDB, index int64) (key []byte, value []byte) {
-	if node.isLeaf() {
-		if index == 0 {
-			return node.key, node.value
-		}
-		return nil, nil
-	}
-	// TODO: could improve this by storing the
-	// sizes as well as left/right hash.
-	leftNode := node.getLeftNode(ndb)
-
-	if index < int64(leftNode.size) {
-		return leftNode.getByIndex(ndb, index)
-	}
-	return node.getRightNode(ndb).getByIndex(ndb, index-int64(leftNode.size))
-}
 func (node *Node) getLeftNode(ndb *nodeDB) *Node {
 	if node.leftNode != nil {
 		return node.leftNode
@@ -367,15 +297,9 @@ func (node *Node) getRightNode(ndb *nodeDB) *Node {
 	return ndb.GetNode(node.rightHash)
 }
 
-// NOTE: mutates height and size
-func (node *Node) calcHeightAndSize(ndb *nodeDB) {
-	node.height = maxUInt64(node.getLeftNode(ndb).height, node.getRightNode(ndb).height) + 1
-	node.size = node.getLeftNode(ndb).size + node.getRightNode(ndb).size
-}
-
-func (node *Node) calcBalance(ndb *nodeDB) int {
-	return int(node.getLeftNode(ndb).height) - int(node.getRightNode(ndb).height)
-}
+// =================================================
+// ================== Traverse =====================
+// =================================================
 
 // traverse is a wrapper over traverseInRange when we want the whole tree
 func (node *Node) traverse(ndb *nodeDB, ascending bool, cb func(*Node) bool) bool {
@@ -433,20 +357,4 @@ func (node *Node) traverseInRange(ndb *nodeDB, start, end []byte, ascending bool
 	}
 
 	return stop
-}
-
-
-// Only used in testing...
-func (node *Node) lmd(ndb *nodeDB) *Node {
-	if node.isLeaf() {
-		return node
-	}
-	return node.getLeftNode(ndb).lmd(ndb)
-}
-
-func maxUInt64(a, b uint64) uint64 {
-	if a > b {
-		return a
-	}
-	return b
 }
