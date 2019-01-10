@@ -19,7 +19,6 @@ require (
 	github.com/go-stack/stack v1.7.0 // indirect
 	github.com/gogo/protobuf v1.2.0 // indirect
 	github.com/golang/snappy v0.0.0-20170215233205-553a64147049 // indirect
-	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf // indirect
 	github.com/google/uuid v0.0.0-20161128191214-064e2069ce9c
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/handlers v1.4.0
@@ -29,7 +28,6 @@ require (
 	github.com/hpcloud/tail v1.0.0 // indirect
 	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
-	github.com/jmhodges/levigo v0.0.0-20161115193449-c42d9e0ca023 // indirect
 	github.com/lib/pq v0.0.0-20180327071824-d34b9ff171c2 // indirect
 	github.com/mattn/go-colorable v0.0.9 // indirect
 	github.com/mattn/go-isatty v0.0.3
@@ -51,7 +49,6 @@ require (
 	github.com/stellar/go v0.0.0-20180501231346-87a45bf9f03d
 	github.com/stretchr/testify v1.2.2
 	github.com/syndtr/goleveldb v0.0.0-20180331014930-714f901b98fd
-	github.com/tendermint/go-amino v0.14.1
 	github.com/tendermint/tendermint v0.27.4
 	github.com/ulule/limiter v2.2.0+incompatible
 	github.com/vmihailenco/msgpack v4.0.1+incompatible
