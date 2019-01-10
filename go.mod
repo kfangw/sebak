@@ -2,6 +2,7 @@ module boscoin.io/sebak
 
 require (
 	github.com/GianlucaGuarini/go-observable v0.0.0-20180829201609-d386f0081a66
+	github.com/VividCortex/gohistogram v1.0.0 // indirect
 	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412 // indirect
 	github.com/allegro/bigcache v1.1.0 // indirect
 	github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973 // indirect
@@ -9,13 +10,16 @@ require (
 	github.com/btcsuite/btcutil v0.0.0-20170726183619-501929d3d046
 	github.com/davecgh/go-spew v1.1.0 // indirect
 	github.com/ethereum/go-ethereum v1.8.19
+	github.com/fortytw2/leaktest v1.3.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.7 // indirect
 	github.com/go-kit/kit v0.8.0
+	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/go-redis/cache v6.3.5+incompatible
 	github.com/go-redis/redis v6.14.2+incompatible
 	github.com/go-stack/stack v1.7.0 // indirect
-	github.com/golang/protobuf v1.2.0 // indirect
+	github.com/gogo/protobuf v1.2.0 // indirect
 	github.com/golang/snappy v0.0.0-20170215233205-553a64147049 // indirect
+	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf // indirect
 	github.com/google/uuid v0.0.0-20161128191214-064e2069ce9c
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/handlers v1.4.0
@@ -25,6 +29,7 @@ require (
 	github.com/hpcloud/tail v1.0.0 // indirect
 	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/jmhodges/levigo v0.0.0-20161115193449-c42d9e0ca023 // indirect
 	github.com/lib/pq v0.0.0-20180327071824-d34b9ff171c2 // indirect
 	github.com/mattn/go-colorable v0.0.9 // indirect
 	github.com/mattn/go-isatty v0.0.3
@@ -46,14 +51,15 @@ require (
 	github.com/stellar/go v0.0.0-20180501231346-87a45bf9f03d
 	github.com/stretchr/testify v1.2.2
 	github.com/syndtr/goleveldb v0.0.0-20180331014930-714f901b98fd
+	github.com/tendermint/go-amino v0.14.1
+	github.com/tendermint/tendermint v0.27.4
 	github.com/ulule/limiter v2.2.0+incompatible
 	github.com/vmihailenco/msgpack v4.0.1+incompatible
-	golang.org/x/net v0.0.0-20180420171651-5f9ae10d9af5
+	golang.org/x/net v0.0.0-20180724234803-3673e40ba225
 	golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f
 	golang.org/x/sys v0.0.0-20180501092740-78d5f264b493 // indirect
-	golang.org/x/text v0.3.0 // indirect
+	google.golang.org/appengine v1.4.0 // indirect
 	gopkg.in/fsnotify.v1 v1.4.7 // indirect
-	gopkg.in/karalabe/cookiejar.v2 v2.0.0-20150724131613-8dcd6a7f4951 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.2.1
 )
