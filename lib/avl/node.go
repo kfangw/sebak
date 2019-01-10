@@ -208,23 +208,6 @@ func (node *Node) DecodeRLP(s *rlp.Stream) error {
 // ================== Hashing ======================
 // =================================================
 
-// Computes the hash of the node without computing its descendants. Must be
-// called on nodes which have descendant node hashes already computed.
-func (node *Node) _hash() []byte {
-	if node.hash != nil {
-		return node.hash
-	}
-
-	buf := new(bytes.Buffer)
-	if err := node.EncodeRLP(buf); err != nil {
-		//if err := node.writeHashBytes(buf); err != nil {
-		panic(err)
-	}
-	node.hash = common.MakeHash(buf.Bytes())
-
-	return node.hash
-}
-
 // Hash the node and its descendants recursively. This usually mutates all
 // descendant nodes. Returns the node hash and number of nodes hashed.
 func (node *Node) hashRecursively(cb func(n *Node)) []byte {

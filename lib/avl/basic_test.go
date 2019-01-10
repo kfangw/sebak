@@ -159,7 +159,7 @@ func TestUnit(t *testing.T) {
 	// Case 1:
 	t1 := T(N(4, 20))
 
-	expectSet(t1, 8, "((4 8) 20)", 3)
+	expectSet(t1, 8, "((4 8) 20)",1)
 	expectSet(t1, 25, "(4 (20 25))", 3)
 
 	t2 := T(N(4, N(20, 25)))
